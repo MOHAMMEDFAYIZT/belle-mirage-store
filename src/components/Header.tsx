@@ -1,0 +1,172 @@
+import { ShoppingBag, Search, User, LogOut, Home } from "lucide-react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useCart } from "@/context/CartContext";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { CartDrawer } from "./CartDrawer";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+
+export const Header = () => {
+  const { totalItems } = useCart();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [user, setUser] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    checkUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+      if (session?.user) {
+        checkAdminStatus(session.user.id);
+      } else {
+        setIsAdmin(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const checkUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setUser(user);
+    if (user) {
+      checkAdminStatus(user.id);
+    }
+  };
+
+  const checkAdminStatus = async (userId: string) => {
+    const { data } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .eq('role', 'admin')
+      .single();
+    
+    setIsAdmin(!!data);
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    toast.success("Logged out successfully");
+    navigate("/");
+  };
+
+  return (
+    <header className="sticky top-0 z-50 bg-primary text-primary-foreground">
+      <div className="container mx-auto px-4 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            {/* Logo */}
+            <Link to="/" className="flex items-center gap-3">
+  {/* Logo */}
+  <img
+    src="/logo.svg"
+    alt="Belle Mirage Logo"
+    className="h-10 md:h-12 w-auto object-contain"
+  />
+
+  {/* Brand Text */}
+  <span className="text-xl md:text-2xl font-light tracking-[0.4em] uppercase">
+    Belle Mirage
+  </span>
+</Link>
+
+
+          </div>
+
+          <div className="flex items-center gap-4">
+            {/* Home Button - Show on all pages except home */}
+            {location.pathname !== "/" && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-primary-foreground hover:bg-primary-foreground/10"
+                onClick={() => navigate("/")}
+              >
+                <Home className="h-5 w-5" />
+              </Button>
+            )}
+            
+            {/* Search Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-primary-foreground hover:bg-primary-foreground/10"
+              onClick={() => navigate("/search")}
+            >
+              <Search className="h-5 w-5" />
+            </Button>
+            
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10">
+                    <User className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => navigate("/orders")}>
+                    My Orders
+                  </DropdownMenuItem>
+                  {isAdmin && (
+                    <DropdownMenuItem onClick={() => navigate("/admin")}>
+                      Admin Dashboard
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={handleLogout}>
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-primary-foreground hover:bg-primary-foreground/10"
+                onClick={() => navigate("/login")}
+              >
+                <User className="h-5 w-5" />
+              </Button>
+            )}
+            
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative text-primary-foreground hover:bg-primary-foreground/10">
+                  <ShoppingBag className="h-5 w-5" />
+                  {totalItems > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-primary-foreground text-primary text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                      {totalItems}
+                    </span>
+                  )}
+                </Button>
+              </SheetTrigger>
+              <SheetContent>
+                <SheetHeader>
+                  <SheetTitle>Shopping Cart</SheetTitle>
+                </SheetHeader>
+                <CartDrawer />
+              </SheetContent>
+            </Sheet>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+};
