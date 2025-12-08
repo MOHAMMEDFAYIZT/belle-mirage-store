@@ -1,10 +1,15 @@
+/* src/App.css */
+
+/* Let the app use full width; Tailwind handles spacing */
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  text-align: left;
 }
 
+/* Old Vite boilerplate – safe to keep or remove
+   (doesn't affect your current UI unless you still use .logo) */
 .logo {
   height: 6em;
   padding: 1.5em;

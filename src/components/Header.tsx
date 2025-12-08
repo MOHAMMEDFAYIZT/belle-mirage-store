@@ -1,4 +1,4 @@
-import { ShoppingBag, Search, User, LogOut, Home } from "lucide-react";
+import { ShoppingBag, Search, User, LogOut, Home, Menu, X } from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useCart } from "@/context/CartContext";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ export const Header = () => {
   const location = useLocation();
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
     checkUser();
@@ -65,32 +66,49 @@ export const Header = () => {
     await supabase.auth.signOut();
     toast.success("Logged out successfully");
     navigate("/");
+    setIsMenuOpen(false);
   };
 
   return (
     <header className="sticky top-0 z-50 bg-primary text-primary-foreground">
-      <div className="container mx-auto px-4 py-4">
+      <div className="container mx-auto px-4 py-3 md:py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            {/* Logo */}
-            <Link to="/" className="flex items-center gap-3">
-  {/* Logo */}
-  <img
-    src="/logo.svg"
-    alt="Belle Mirage Logo"
-    className="h-10 md:h-12 w-auto object-contain"
-  />
-
-  {/* Brand Text */}
-  <span className="text-xl md:text-2xl font-light tracking-[0.4em] uppercase">
-    Belle Mirage
-  </span>
-</Link>
-
-
+          {/* Mobile Menu Button */}
+          <div className="md:hidden">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-primary-foreground hover:bg-primary-foreground/10"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+            >
+              {isMenuOpen ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
+            </Button>
           </div>
 
-          <div className="flex items-center gap-4">
+          {/* Logo */}
+          <div className="flex-1 flex justify-center md:justify-start md:flex-none">
+            <Link to="/" className="flex items-center gap-2 md:gap-3" onClick={() => setIsMenuOpen(false)}>
+              <img
+                src="/logo.svg"
+                alt="Belle Mirage Logo"
+                className="h-8 md:h-12 w-auto object-contain"
+                onError={(e) => {
+                  // Fallback if logo doesn't exist
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+              <span className="text-lg md:text-2xl font-light tracking-[0.2em] md:tracking-[0.4em] uppercase">
+                Belle Mirage
+              </span>
+            </Link>
+          </div>
+
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center gap-4">
             {/* Home Button - Show on all pages except home */}
             {location.pathname !== "/" && (
               <Button
@@ -165,7 +183,130 @@ export const Header = () => {
               </SheetContent>
             </Sheet>
           </div>
+
+          {/* Mobile Actions */}
+          <div className="flex items-center gap-2 md:hidden">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-primary-foreground hover:bg-primary-foreground/10"
+              onClick={() => navigate("/search")}
+            >
+              <Search className="h-5 w-5" />
+            </Button>
+            
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative text-primary-foreground hover:bg-primary-foreground/10">
+                  <ShoppingBag className="h-5 w-5" />
+                  {totalItems > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-primary-foreground text-primary text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                      {totalItems}
+                    </span>
+                  )}
+                </Button>
+              </SheetTrigger>
+              <SheetContent className="w-[90vw] max-w-md">
+                <SheetHeader>
+                  <SheetTitle>Shopping Cart</SheetTitle>
+                </SheetHeader>
+                <CartDrawer />
+              </SheetContent>
+            </Sheet>
+          </div>
         </div>
+
+        {/* Mobile Menu */}
+        {isMenuOpen && (
+          <div className="md:hidden mt-4 pb-4 border-t border-primary-foreground/20 pt-4">
+            <div className="flex flex-col gap-3">
+              {location.pathname !== "/" && (
+                <Button
+                  variant="ghost"
+                  className="justify-start text-primary-foreground hover:bg-primary-foreground/10"
+                  onClick={() => {
+                    navigate("/");
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  <Home className="h-5 w-5 mr-2" />
+                  Home
+                </Button>
+              )}
+              
+              <Button
+                variant="ghost"
+                className="justify-start text-primary-foreground hover:bg-primary-foreground/10"
+                onClick={() => {
+                  navigate("/mens");
+                  setIsMenuOpen(false);
+                }}
+              >
+                Men's Collection
+              </Button>
+              
+              <Button
+                variant="ghost"
+                className="justify-start text-primary-foreground hover:bg-primary-foreground/10"
+                onClick={() => {
+                  navigate("/womens");
+                  setIsMenuOpen(false);
+                }}
+              >
+                Women's Collection
+              </Button>
+              
+              {user ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    className="justify-start text-primary-foreground hover:bg-primary-foreground/10"
+                    onClick={() => {
+                      navigate("/orders");
+                      setIsMenuOpen(false);
+                    }}
+                  >
+                    My Orders
+                  </Button>
+                  
+                  {isAdmin && (
+                    <Button
+                      variant="ghost"
+                      className="justify-start text-primary-foreground hover:bg-primary-foreground/10"
+                      onClick={() => {
+                        navigate("/admin");
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      Admin Dashboard
+                    </Button>
+                  )}
+                  
+                  <Button
+                    variant="ghost"
+                    className="justify-start text-primary-foreground hover:bg-primary-foreground/10"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="h-5 w-5 mr-2" />
+                    Logout
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="ghost"
+                  className="justify-start text-primary-foreground hover:bg-primary-foreground/10"
+                  onClick={() => {
+                    navigate("/login");
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  <User className="h-5 w-5 mr-2" />
+                  Login / Signup
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </header>
   );

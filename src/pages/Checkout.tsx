@@ -112,107 +112,72 @@ const Checkout = () => {
         }
       });
 
-      if (error) {
-        console.error("Edge Function error:", error);
-        throw new Error(`Payment server error: ${error.message}`);
-      }
-
-      if (!data || !data.orderId) {
-        console.error("Invalid response from Edge Function:", data);
-        throw new Error("Invalid response from payment server");
-      }
+      if (error) throw new Error(`Payment server error: ${error.message}`);
+      if (!data || !data.orderId) throw new Error("Invalid response from payment server");
 
       return data;
     } catch (error: any) {
-      console.error("Error creating Razorpay order:", error);
       throw error;
     }
   };
 
- const saveOrder = async (paymentId: string, orderId: string, signature: string) => {
-  if (!user) {
-    throw new Error("User not authenticated");
-  }
+  const saveOrder = async (paymentId: string, orderId: string, signature: string) => {
+    if (!user) throw new Error("User not authenticated");
 
-  const shippingAddress: ShippingAddress = {
-    full_name: formData.fullName.trim(),
-    email: formData.email.trim(),
-    phone: formData.phone.trim(),
-    address: formData.address.trim(),
-    city: formData.city.trim(),
-    state: formData.state.trim(),
-    pincode: formData.pincode.trim(),
+    const shippingAddress: ShippingAddress = {
+      full_name: formData.fullName.trim(),
+      email: formData.email.trim(),
+      phone: formData.phone.trim(),
+      address: formData.address.trim(),
+      city: formData.city.trim(),
+      state: formData.state.trim(),
+      pincode: formData.pincode.trim(),
+    };
+
+    try {
+      const orderDate = new Date();
+      const estimatedDelivery = new Date(orderDate);
+      estimatedDelivery.setDate(orderDate.getDate() + 7);
+      const estimatedDeliveryDateOnly = estimatedDelivery.toISOString().split("T")[0];
+
+      const { data: order, error: orderError } = await supabase
+        .from("orders")
+        .insert({
+          user_id: user.id,
+          total_amount: totalPrice,
+          status: "processing",
+          payment_status: "paid",
+          payment_intent_id: paymentId,
+          razorpay_order_id: orderId,
+          razorpay_signature: signature,
+          shipping_address: shippingAddress,
+          estimated_delivery: estimatedDeliveryDateOnly,
+        })
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+
+      const orderItems = items.map((item: CartItem) => ({
+        order_id: order.id,
+        product_id: item.product.id,
+        quantity: item.quantity,
+        size: item.size || "One Size",
+        color: item.color || "Default",
+        price: item.product.price,
+      }));
+
+      const { error: itemsError } = await supabase
+        .from("order_items")
+        .insert(orderItems);
+
+      if (itemsError) throw itemsError;
+
+      return order;
+    } catch (error) {
+      throw error;
+    }
   };
-
-  try {
-    console.log("=== SAVE ORDER DEBUG START ===");
-    console.log("User ID:", user.id);
-    console.log("Total amount:", totalPrice);
-    console.log("Cart items:", items);
-    console.log("Number of items:", items.length);
-
-    // 👇 NEW: calculate estimated delivery = today + 7 days (date only)
-    const orderDate = new Date();
-    const estimatedDelivery = new Date(orderDate);
-    estimatedDelivery.setDate(orderDate.getDate() + 7);
-    const estimatedDeliveryDateOnly = estimatedDelivery.toISOString().split("T")[0];
-
-    // 1. Create the order
-    console.log("Creating order in database...");
-    const { data: order, error: orderError } = await supabase
-      .from("orders")
-      .insert({
-        user_id: user.id,
-        total_amount: totalPrice,
-        status: "processing",            // or 'pending' if that's what you decided
-        payment_status: "paid",          // if you're using payment_status
-        payment_intent_id: paymentId,
-        razorpay_order_id: orderId,
-        razorpay_signature: signature,
-        shipping_address: shippingAddress,
-        estimated_delivery: estimatedDeliveryDateOnly, // 👈 NEW FIELD
-      })
-      .select()
-      .single();
-
-    if (orderError) {
-      console.error("❌ Error creating order:", orderError);
-      console.error("Error details:", orderError.message, orderError.details);
-      throw orderError;
-    }
-
-    console.log("✅ Order created successfully. Order ID:", order.id);
-
-    // 2. Create order items (unchanged)
-    const orderItems = items.map((item: CartItem) => ({
-      order_id: order.id,
-      product_id: item.product.id,
-      quantity: item.quantity,
-      size: item.size || "One Size",
-      color: item.color || "Default",
-      price: item.product.price,
-    }));
-
-    const { data: insertedItems, error: itemsError } = await supabase
-      .from("order_items")
-      .insert(orderItems)
-      .select();
-
-    if (itemsError) {
-      console.error("❌ Error creating order items:", itemsError);
-      throw itemsError;
-    }
-
-    console.log("✅ Order items created successfully:", insertedItems);
-    console.log("=== SAVE ORDER DEBUG END ===");
-
-    return order;
-  } catch (error) {
-    console.error("❌ Error in saveOrder:", error);
-    throw error;
-  }
-};
-
 
   const handlePayment = async () => {
     if (!validateForm()) return;
@@ -221,14 +186,12 @@ const Checkout = () => {
       return;
     }
 
-    // Validate phone number
     const phoneRegex = /^[6-9]\d{9}$/;
     if (!phoneRegex.test(formData.phone.replace(/\D/g, ''))) {
       toast.error("Please enter a valid 10-digit Indian phone number");
       return;
     }
 
-    // Validate pincode
     const pincodeRegex = /^\d{6}$/;
     if (!pincodeRegex.test(formData.pincode)) {
       toast.error("Please enter a valid 6-digit pincode");
@@ -237,16 +200,12 @@ const Checkout = () => {
 
     setLoading(true);
     try {
-      // Load Razorpay script
       const scriptLoaded = await loadRazorpayScript();
       if (!scriptLoaded) {
         throw new Error("Failed to load payment system. Please refresh and try again.");
       }
 
-      // Create order on server
-      console.log("Creating Razorpay order for amount:", totalPrice);
       const orderData = await createRazorpayOrder(totalPrice);
-
       const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID;
       if (!razorpayKeyId) {
         throw new Error("Payment configuration error. Please contact support.");
@@ -256,12 +215,11 @@ const Checkout = () => {
         key: razorpayKeyId,
         amount: orderData.amount,
         currency: orderData.currency || "INR",
-        name: "LUXE Fashion Store",
+        name: "Fashion Store",
         description: `Order of ${items.length} item${items.length > 1 ? 's' : ''}`,
         order_id: orderData.orderId,
         handler: async function (response: any) {
           try {
-            console.log("✅ Payment successful! Response:", response);
             await saveOrder(
               response.razorpay_payment_id,
               response.razorpay_order_id,
@@ -284,7 +242,7 @@ const Checkout = () => {
           address: `${formData.address}, ${formData.city}, ${formData.state} - ${formData.pincode}`,
         },
         theme: {
-          color: "#3b82f6",
+          color: "#000000",
         },
         modal: {
           ondismiss: function() {
@@ -296,7 +254,6 @@ const Checkout = () => {
       
       const razorpay = new window.Razorpay(options);
       razorpay.on('payment.failed', function(response: any) {
-        console.error("❌ Payment failed:", response.error);
         toast.error(`Payment failed: ${response.error.description || "Please try again"}`);
         setLoading(false);
       });
@@ -308,7 +265,6 @@ const Checkout = () => {
       
       razorpay.open();
     } catch (error: any) {
-      console.error("❌ Payment error:", error);
       toast.error(error.message || "Payment failed. Please try again.");
       setLoading(false);
     }
@@ -320,7 +276,7 @@ const Checkout = () => {
         <Header />
         <div className="container mx-auto px-4 py-8">
           <div className="text-center py-12">
-            <h1 className="text-2xl font-bold mb-4">Your cart is empty</h1>
+            <h1 className="text-xl sm:text-2xl font-bold mb-4">Your cart is empty</h1>
             <Button onClick={() => navigate("/")}>Continue Shopping</Button>
           </div>
         </div>
@@ -332,21 +288,21 @@ const Checkout = () => {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-8">Checkout</h1>
+      <div className="container mx-auto px-4 py-6 sm:py-8">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8">Checkout</h1>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
           {/* Shipping Information */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MapPin className="h-5 w-5" />
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                <MapPin className="h-4 w-4 sm:h-5 sm:w-5" />
                 Shipping Information
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 p-4 sm:p-6 pt-0">
               <div className="space-y-2">
-                <Label htmlFor="fullName">Full Name *</Label>
+                <Label htmlFor="fullName" className="text-sm sm:text-base">Full Name *</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -354,16 +310,16 @@ const Checkout = () => {
                     name="fullName"
                     value={formData.fullName}
                     onChange={handleInputChange}
-                    className="pl-10"
+                    className="pl-10 text-sm sm:text-base"
                     placeholder="Enter your full name"
                     required
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email *</Label>
+                  <Label htmlFor="email" className="text-sm sm:text-base">Email *</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -372,7 +328,7 @@ const Checkout = () => {
                       type="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className="pl-10"
+                      className="pl-10 text-sm sm:text-base"
                       placeholder="email@example.com"
                       required
                     />
@@ -380,7 +336,7 @@ const Checkout = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Phone *</Label>
+                  <Label htmlFor="phone" className="text-sm sm:text-base">Phone *</Label>
                   <div className="relative">
                     <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -389,7 +345,7 @@ const Checkout = () => {
                       type="tel"
                       value={formData.phone}
                       onChange={handleInputChange}
-                      className="pl-10"
+                      className="pl-10 text-sm sm:text-base"
                       placeholder="10-digit mobile number"
                       required
                     />
@@ -398,7 +354,7 @@ const Checkout = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="address">Address *</Label>
+                <Label htmlFor="address" className="text-sm sm:text-base">Address *</Label>
                 <Input
                   id="address"
                   name="address"
@@ -406,12 +362,13 @@ const Checkout = () => {
                   onChange={handleInputChange}
                   placeholder="Full address with landmark"
                   required
+                  className="text-sm sm:text-base"
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="city">City *</Label>
+                  <Label htmlFor="city" className="text-sm sm:text-base">City *</Label>
                   <Input
                     id="city"
                     name="city"
@@ -419,11 +376,12 @@ const Checkout = () => {
                     onChange={handleInputChange}
                     placeholder="City"
                     required
+                    className="text-sm sm:text-base"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="state">State *</Label>
+                  <Label htmlFor="state" className="text-sm sm:text-base">State *</Label>
                   <Input
                     id="state"
                     name="state"
@@ -431,11 +389,12 @@ const Checkout = () => {
                     onChange={handleInputChange}
                     placeholder="State"
                     required
+                    className="text-sm sm:text-base"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="pincode">Pincode *</Label>
+                  <Label htmlFor="pincode" className="text-sm sm:text-base">Pincode *</Label>
                   <Input
                     id="pincode"
                     name="pincode"
@@ -443,6 +402,7 @@ const Checkout = () => {
                     onChange={handleInputChange}
                     placeholder="6-digit pincode"
                     required
+                    className="text-sm sm:text-base"
                   />
                 </div>
               </div>
@@ -451,22 +411,22 @@ const Checkout = () => {
 
           {/* Order Summary */}
           <Card>
-            <CardHeader>
-              <CardTitle>Order Summary</CardTitle>
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-lg sm:text-xl">Order Summary</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
+            <CardContent className="space-y-6 p-4 sm:p-6 pt-0">
+              <div className="space-y-4 max-h-60 overflow-y-auto">
                 {items.map((item: CartItem) => (
-                  <div key={item.id} className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">
+                  <div key={item.id} className="flex items-center justify-between py-2">
+                    <div className="flex-1">
+                      <p className="font-medium text-sm sm:text-base">
                         {item.product.name}
                       </p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-xs sm:text-sm text-muted-foreground">
                         Size: {item.size} • Color: {item.color}
                       </p>
                     </div>
-                    <p className="font-medium">
+                    <p className="font-medium text-sm sm:text-base">
                       ₹{item.product.price} × {item.quantity}
                     </p>
                   </div>
@@ -474,18 +434,18 @@ const Checkout = () => {
               </div>
 
               <div className="border-t pt-4 space-y-2">
-                <div className="flex justify-between">
+                <div className="flex justify-between text-sm sm:text-base">
                   <span>Subtotal</span>
                   <span>₹{totalPrice}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between text-sm sm:text-base">
                   <span>Shipping</span>
                   <span className="text-green-600 font-medium">FREE</span>
                 </div>
-                <div className="flex justify-between text-lg font-bold pt-2 border-t">
+                <div className="flex justify-between text-lg sm:text-xl font-bold pt-2 border-t">
                   <span>Total</span>
                   <span className="flex items-center">
-                    <IndianRupee className="h-4 w-4 mr-1" />
+                    <IndianRupee className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                     {totalPrice}
                   </span>
                 </div>
@@ -494,13 +454,13 @@ const Checkout = () => {
               <Button
                 onClick={handlePayment}
                 size="lg"
-                className="w-full"
+                className="w-full text-sm sm:text-base"
                 disabled={loading || !totalPrice || totalPrice <= 0}
               >
                 {loading ? "Processing..." : `Pay ₹${totalPrice}`}
               </Button>
 
-              <p className="text-sm text-muted-foreground text-center">
+              <p className="text-xs sm:text-sm text-muted-foreground text-center">
                 You will be redirected to Razorpay for secure payment
               </p>
             </CardContent>

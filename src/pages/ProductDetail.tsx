@@ -20,7 +20,7 @@ const ProductDetail = () => {
   const [loading, setLoading] = useState(true);
   const [selectedSize, setSelectedSize] = useState("");
   const [selectedColor, setSelectedColor] = useState("");
-  const [adding, setAdding] = useState(false); // disable while adding
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -43,8 +43,6 @@ const ProductDetail = () => {
         return;
       }
 
-      console.log('Product data from DB:', data);
-
       if (data) {
         const transformedProduct: Product = {
           id: data.id,
@@ -54,7 +52,7 @@ const ProductDetail = () => {
           original_price: data.original_price || undefined,
           category: data.category,
           image: data.image || '/placeholder.svg',
-          images: data.images || [],  // Use images array if available
+          images: data.images || [],
           sizes: data.sizes || [],
           colors: data.colors || [],
           in_stock: data.in_stock ?? true,
@@ -62,11 +60,8 @@ const ProductDetail = () => {
           updated_at: data.updated_at
         };
         
-        console.log('Transformed product:', transformedProduct);
-        
         setProduct(transformedProduct);
         
-        // Set default selections
         if (data.sizes?.length > 0) {
           setSelectedSize(data.sizes[0]);
         } else {
@@ -99,7 +94,6 @@ const ProductDetail = () => {
       return;
     }
 
-    // Double-check server-side that the product is still in stock
     try {
       setAdding(true);
       const { data: fresh, error: freshError } = await supabase
@@ -110,19 +104,16 @@ const ProductDetail = () => {
 
       if (freshError) {
         console.error('Error re-checking stock:', freshError);
-        // continue with client-side flag if server check fails (fail open is better UX here)
       }
 
       const isInStock = fresh?.in_stock ?? product.in_stock;
 
       if (!isInStock) {
         toast.error("Sorry — this product is out of stock");
-        // update UI state so page reflects new status
         setProduct(prev => prev ? { ...prev, in_stock: false } : prev);
         return;
       }
 
-      // proceed to add to cart
       addToCart(product, selectedSize, selectedColor);
       toast.success("Added to cart!");
     } catch (err: any) {
@@ -166,23 +157,21 @@ const ProductDetail = () => {
       ? [product.image] 
       : ['/placeholder.svg'];
 
-  console.log('Images for carousel:', images); // Add this for debugging
-
   return (
     <div className="min-h-screen bg-background">
       <Header />
       
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-6 sm:py-8">
         <button 
           onClick={() => navigate(-1)}
-          className="text-muted-foreground hover:text-foreground mb-6"
+          className="text-muted-foreground hover:text-foreground mb-4 sm:mb-6"
         >
           ← Back
         </button>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-12">
           {/* Product Images */}
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             <ImageCarousel 
               images={images} 
               className="w-full"
@@ -190,62 +179,62 @@ const ProductDetail = () => {
           </div>
 
           {/* Product Info */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <div>
-              <h1 className="text-3xl font-light tracking-wider mb-2">{product.name}</h1>
+              <h1 className="text-2xl sm:text-3xl font-light tracking-wider mb-2">{product.name}</h1>
               <div className="flex items-center gap-3 mb-4">
-                <span className="text-2xl font-bold flex items-center gap-2">
+                <span className="text-xl sm:text-2xl font-bold flex items-center gap-1 sm:gap-2">
                   <IndianRupee className="h-4 w-4" />
                   {product.price}
                 </span>
 
                 {/* Stock badge */}
                 {product.in_stock ? (
-                  <Badge className="bg-green-100 text-green-800">In stock</Badge>
+                  <Badge className="bg-green-100 text-green-800 text-xs sm:text-sm">In stock</Badge>
                 ) : (
-                  <Badge className="bg-red-100 text-red-800">Out of stock</Badge>
+                  <Badge className="bg-red-100 text-red-800 text-xs sm:text-sm">Out of stock</Badge>
                 )}
               </div>
-              <p className="text-muted-foreground leading-relaxed">{product.description}</p>
+              <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">{product.description}</p>
             </div>
 
             {/* Size Selection */}
-            <div className="space-y-3">
-              <Label htmlFor="size">Size</Label>
+            <div className="space-y-2 sm:space-y-3">
+              <Label htmlFor="size" className="text-sm sm:text-base">Size</Label>
               <Select value={selectedSize} onValueChange={setSelectedSize}>
-                <SelectTrigger>
+                <SelectTrigger className="text-sm sm:text-base">
                   <SelectValue placeholder="Select size" />
                 </SelectTrigger>
                 <SelectContent>
                   {product.sizes?.length ? (
                     product.sizes.map((size) => (
-                      <SelectItem key={size} value={size}>
+                      <SelectItem key={size} value={size} className="text-sm sm:text-base">
                         {size}
                       </SelectItem>
                     ))
                   ) : (
-                    <SelectItem value="">One Size</SelectItem>
+                    <SelectItem value="" className="text-sm sm:text-base">One Size</SelectItem>
                   )}
                 </SelectContent>
               </Select>
             </div>
 
             {/* Color Selection */}
-            <div className="space-y-3">
-              <Label htmlFor="color">Color</Label>
+            <div className="space-y-2 sm:space-y-3">
+              <Label htmlFor="color" className="text-sm sm:text-base">Color</Label>
               <Select value={selectedColor} onValueChange={setSelectedColor}>
-                <SelectTrigger>
+                <SelectTrigger className="text-sm sm:text-base">
                   <SelectValue placeholder="Select color" />
                 </SelectTrigger>
                 <SelectContent>
                   {product.colors?.length ? (
                     product.colors.map((color) => (
-                      <SelectItem key={color} value={color}>
+                      <SelectItem key={color} value={color} className="text-sm sm:text-base">
                         {color}
                       </SelectItem>
                     ))
                   ) : (
-                    <SelectItem value="">Default</SelectItem>
+                    <SelectItem value="" className="text-sm sm:text-base">Default</SelectItem>
                   )}
                 </SelectContent>
               </Select>
@@ -254,21 +243,21 @@ const ProductDetail = () => {
             <Button 
               onClick={handleAddToCart} 
               size="lg" 
-              className="w-full"
+              className="w-full text-sm sm:text-base"
               disabled={adding || !product.in_stock}
             >
               {product.in_stock ? (adding ? "Adding..." : "Add to Cart") : "Out of Stock"}
             </Button>
 
             {/* Product Details */}
-            <div className="border-t pt-6">
-              <h3 className="font-semibold mb-3">Product Details</h3>
-              <div className="space-y-2 text-sm text-muted-foreground">
+            <div className="border-t pt-4 sm:pt-6">
+              <h3 className="font-semibold text-sm sm:text-base mb-3">Product Details</h3>
+              <div className="space-y-2 text-xs sm:text-sm text-muted-foreground">
                 <p><strong>Category:</strong> {product.category}</p>
                 <p><strong>Available Sizes:</strong> {product.sizes?.length ? product.sizes.join(', ') : 'N/A'}</p>
                 <p><strong>Available Colors:</strong> {product.colors?.length ? product.colors.join(', ') : 'N/A'}</p>
                 {!product.in_stock && (
-                  <p className="text-sm text-red-600 mt-2">This item is currently unavailable. You can check back later or contact support for restock info.</p>
+                  <p className="text-xs sm:text-sm text-red-600 mt-2">This item is currently unavailable. You can check back later or contact support for restock info.</p>
                 )}
               </div>
             </div>

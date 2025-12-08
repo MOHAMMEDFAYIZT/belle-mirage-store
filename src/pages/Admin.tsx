@@ -64,25 +64,25 @@ const Admin = () => {
     <div className="min-h-screen flex flex-col">
       <Header />
       <main className="flex-1 container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-8">Admin Dashboard</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8">Admin Dashboard</h1>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
           <Link to="/admin/products">
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-              <CardHeader>
-                <Package className="h-10 w-10 mb-2 text-primary" />
-                <CardTitle>Products</CardTitle>
-                <CardDescription>Manage your product catalog</CardDescription>
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
+              <CardHeader className="p-4 sm:p-6">
+                <Package className="h-8 w-8 sm:h-10 sm:w-10 mb-2 text-primary" />
+                <CardTitle className="text-lg sm:text-xl">Products</CardTitle>
+                <CardDescription className="text-sm">Manage your product catalog</CardDescription>
               </CardHeader>
             </Card>
           </Link>
 
           <Link to="/admin/orders">
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-              <CardHeader>
-                <ShoppingCart className="h-10 w-10 mb-2 text-primary" />
-                <CardTitle>Orders</CardTitle>
-                <CardDescription>View and manage orders</CardDescription>
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
+              <CardHeader className="p-4 sm:p-6">
+                <ShoppingCart className="h-8 w-8 sm:h-10 sm:w-10 mb-2 text-primary" />
+                <CardTitle className="text-lg sm:text-xl">Orders</CardTitle>
+                <CardDescription className="text-sm">View and manage orders</CardDescription>
               </CardHeader>
             </Card>
           </Link>

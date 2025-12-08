@@ -103,3 +103,33 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+/* Add this to the bottom of your existing index.css file */
+
+/* Mobile image optimization */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Better product card images on mobile */
+.product-image {
+  @apply w-full h-auto aspect-square;
+}
+
+/* Prevent layout shift with images */
+.aspect-square img {
+  @apply absolute inset-0 w-full h-full object-cover;
+}
+
+/* Better touch targets for mobile */
+@media (max-width: 640px) {
+  button, 
+  [role="button"],
+  a.button {
+    @apply min-h-[44px] px-4;
+  }
+  
+  .container {
+    @apply px-4;
+  }
+}

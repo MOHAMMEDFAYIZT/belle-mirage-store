@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Search, Eye, Package, Calendar, IndianRupee, User, Printer } from "lucide-react";
+import { Search, Eye, Package, IndianRupee, User, Printer, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 
 interface Order {
@@ -27,6 +27,7 @@ interface Order {
   item_count?: number;
   formatted_date?: string;
   display_amount?: string;
+  order_items?: any[];
 }
 
 const AdminOrders = () => {
@@ -35,71 +36,12 @@ const AdminOrders = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   
-  // For order details dialog
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   useEffect(() => {
-    checkDatabaseDirectly();
     checkAdminAndLoadOrders();
   }, []);
-
-  const checkDatabaseDirectly = async () => {
-    console.log("=== DATABASE DIRECT CHECK ===");
-    
-    // Check orders count
-    const { count: ordersCount, error: countError } = await supabase
-      .from('orders')
-      .select('*', { count: 'exact', head: true });
-    
-    if (countError) {
-      console.error("Error counting orders:", countError);
-    } else {
-      console.log(`Total orders in database: ${ordersCount}`);
-    }
-    
-    // Check order_items count
-    const { count: itemsCount, error: itemsCountError } = await supabase
-      .from('order_items')
-      .select('*', { count: 'exact', head: true });
-    
-    if (itemsCountError) {
-      console.error("Error counting order items:", itemsCountError);
-    } else {
-      console.log(`Total order items in database: ${itemsCount}`);
-    }
-    
-    // Get some sample data
-    const { data: sampleOrders, error: sampleError } = await supabase
-      .from('orders')
-      .select('id, created_at, total_amount, status')
-      .order('created_at', { ascending: false })
-      .limit(5);
-    
-    if (sampleError) {
-      console.error("Error fetching sample orders:", sampleError);
-    } else {
-      console.log("Sample orders:", sampleOrders);
-      
-      // For each order, check if it has items
-      if (sampleOrders && sampleOrders.length > 0) {
-        for (const order of sampleOrders) {
-          const { data: orderItems, error: itemsError } = await supabase
-            .from('order_items')
-            .select('id, quantity, product_id')
-            .eq('order_id', order.id);
-          
-          if (itemsError) {
-            console.error(`Error fetching items for order ${order.id}:`, itemsError);
-          } else {
-            console.log(`Order ${order.id} has ${orderItems?.length || 0} items:`, orderItems);
-          }
-        }
-      }
-    }
-    
-    console.log("=== END DATABASE CHECK ===");
-  };
 
   const checkAdminAndLoadOrders = async () => {
     try {
@@ -132,18 +74,23 @@ const AdminOrders = () => {
 
   const loadOrders = async () => {
     try {
-      console.log("=== LOAD ORDERS DEBUG START ===");
-      
-      // Get orders
+      // Get orders with order items
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
-        .select('*')
+        .select(`
+          *,
+          order_items (
+            id,
+            product_id,
+            quantity,
+            price,
+            size,
+            color
+          )
+        `)
         .order('created_at', { ascending: false });
 
       if (ordersError) throw ordersError;
-
-      console.log("Raw orders from database:", ordersData);
-      console.log("Number of orders:", ordersData?.length);
 
       if (!ordersData || ordersData.length === 0) {
         setOrders([]);
@@ -151,47 +98,22 @@ const AdminOrders = () => {
         return;
       }
 
-      // Get item counts for each order
       const ordersWithCounts = await Promise.all(
-        ordersData.map(async (order) => {
-          // Get order items with their quantities
-          const { data: orderItems, error: itemsError } = await supabase
-            .from('order_items')
-            .select('id, quantity, product_id, size, color')
-            .eq('order_id', order.id);
-          
+        ordersData.map(async (order: any) => {
           let itemCount = 0;
-          let itemsDetails: any[] = [];
+          let orderItems = [];
           
-          if (itemsError) {
-            console.error(`❌ Error fetching items for order ${order.id}:`, itemsError);
-          } else if (orderItems && orderItems.length > 0) {
-            console.log(`Order ${order.id} - raw items:`, orderItems);
-            
-            // Sum all quantities
-            itemCount = orderItems.reduce((total, item) => {
-              // Handle different data types
+          if (order.order_items && order.order_items.length > 0) {
+            orderItems = order.order_items;
+            itemCount = orderItems.reduce((total: number, item: any) => {
               let qty = item.quantity;
-              
-              // If it's already a number
-              if (typeof qty === 'number') {
-                return total + qty;
-              }
-              
-              // If it's a string, try to convert
+              if (typeof qty === 'number') return total + qty;
               if (typeof qty === 'string') {
                 const parsed = parseInt(qty, 10);
                 return total + (isNaN(parsed) ? 0 : parsed);
               }
-              
-              // If it's null or undefined
               return total + 0;
             }, 0);
-            
-            itemsDetails = orderItems;
-            console.log(`Order ${order.id}: Found ${orderItems.length} items, total quantity = ${itemCount}`);
-          } else {
-            console.log(`Order ${order.id}: No items found in order_items table`);
           }
 
           // Get customer info from shipping address
@@ -217,10 +139,12 @@ const AdminOrders = () => {
           const formattedDate = new Date(order.created_at).toLocaleDateString('en-IN', {
             day: 'numeric',
             month: 'short',
-            year: 'numeric'
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
           });
 
-          const result = {
+          return {
             ...order,
             customer_name: customerName,
             customer_email: customerEmail,
@@ -228,27 +152,12 @@ const AdminOrders = () => {
             item_count: itemCount,
             formatted_date: formattedDate,
             display_amount: (order.total_amount || 0).toFixed(2),
-            _debug_items: itemsDetails // For debugging only
+            order_items: orderItems
           };
-          
-          console.log(`Order ${order.id} processed:`, {
-            id: order.id,
-            item_count: itemCount,
-            items_found: itemsDetails.length,
-            customer_name: customerName
-          });
-          
-          return result;
         })
       );
 
-      console.log("=== FINAL PROCESSED ORDERS ===");
-      console.log(ordersWithCounts);
-      console.log("=== LOAD ORDERS DEBUG END ===");
-      
-      // Remove debug fields before setting state
-      const finalOrders = ordersWithCounts.map(({ _debug_items, ...order }) => order);
-      setOrders(finalOrders);
+      setOrders(ordersWithCounts);
       
     } catch (error: any) {
       console.error("❌ Error loading orders:", error);
@@ -272,7 +181,6 @@ const AdminOrders = () => {
 
       toast.success("Order status updated");
       
-      // Update local state
       setOrders(prevOrders => 
         prevOrders.map(order => 
           order.id === orderId 
@@ -300,7 +208,7 @@ const AdminOrders = () => {
     const statusInfo = statusMap[status.toLowerCase()] || { label: status, color: "bg-gray-100 text-gray-800" };
     
     return (
-      <Badge className={statusInfo.color}>
+      <Badge className={`${statusInfo.color} text-xs`}>
         {statusInfo.label}
       </Badge>
     );
@@ -318,50 +226,140 @@ const AdminOrders = () => {
       ? JSON.parse(selectedOrder.shipping_address)
       : selectedOrder.shipping_address;
     
+    // Simplified print content - only billing and address
     const content = `
-      BELLE MIRAGE FASHION STORE
-      ==================
-      
-      BILLING & SHIPPING DETAILS
-      ==========================
-      
-      Order ID: ${selectedOrder.id}
-      Order Date: ${selectedOrder.formatted_date}
-      Status: ${selectedOrder.status}
-      
-      Customer Details:
-      -----------------
-      Name: ${shippingAddress?.full_name || 'N/A'}
-      Email: ${shippingAddress?.email || 'N/A'}
-      Phone: ${shippingAddress?.phone || 'N/A'}
-      
-      Shipping Address:
-      -----------------
-      ${shippingAddress?.address || 'N/A'}
-      ${shippingAddress?.city || ''}, ${shippingAddress?.state || ''}
-      Pincode: ${shippingAddress?.pincode || 'N/A'}
-      
-      Order Total: ₹${selectedOrder.display_amount}
-      Items: ${selectedOrder.item_count || 0}
-      
-      ---
-      Thank you for your order!
+=========================================
+           ORDER DETAILS
+=========================================
+
+ORDER INFORMATION
+-----------------------------------------
+Order ID:     ${selectedOrder.id}
+Order Date:   ${selectedOrder.formatted_date}
+Order Status: ${selectedOrder.status.toUpperCase()}
+
+CUSTOMER INFORMATION
+-----------------------------------------
+Name:    ${shippingAddress?.full_name || 'N/A'}
+Email:   ${shippingAddress?.email || 'N/A'}
+Phone:   ${shippingAddress?.phone || 'N/A'}
+
+SHIPPING ADDRESS
+-----------------------------------------
+${shippingAddress?.address || 'N/A'}
+${shippingAddress?.city || ''}, ${shippingAddress?.state || ''}
+Pincode: ${shippingAddress?.pincode || 'N/A'}
+
+BILLING DETAILS
+-----------------------------------------
+Total Items: ${selectedOrder.item_count || 0}
+Total Amount: ₹${selectedOrder.display_amount}
+
+=========================================
+Printed: ${new Date().toLocaleString('en-IN')}
+=========================================
     `;
     
     const printWindow = window.open('', '_blank');
     if (printWindow) {
-      printWindow.document.write(`<pre style="font-family: monospace; padding: 20px; font-size: 14px;">${content}</pre>`);
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Order Details - ${selectedOrder.id}</title>
+            <style>
+              @media print {
+                body {
+                  font-family: 'Courier New', monospace;
+                  font-size: 12px;
+                  line-height: 1.3;
+                  margin: 0;
+                  padding: 15px;
+                  color: #000;
+                  background: #fff;
+                }
+                pre {
+                  white-space: pre-wrap;
+                  word-wrap: break-word;
+                  margin: 0;
+                }
+                .no-print {
+                  display: none !important;
+                }
+              }
+              @media screen {
+                body {
+                  font-family: 'Courier New', monospace;
+                  font-size: 14px;
+                  line-height: 1.4;
+                  margin: 20px;
+                  padding: 20px;
+                  background: #f5f5f5;
+                }
+                pre {
+                  background: white;
+                  padding: 20px;
+                  border: 1px solid #ddd;
+                  border-radius: 4px;
+                  white-space: pre-wrap;
+                  word-wrap: break-word;
+                  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                  max-width: 600px;
+                  margin: 0 auto;
+                }
+              }
+              .print-controls {
+                text-align: center;
+                margin: 20px 0;
+                padding: 15px;
+              }
+              .print-btn {
+                background: #000;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                margin: 0 10px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-family: sans-serif;
+                font-size: 14px;
+              }
+              .print-btn:hover {
+                background: #333;
+              }
+            </style>
+          </head>
+          <body>
+            <pre>${content}</pre>
+            <div class="print-controls no-print">
+              <button class="print-btn" onclick="window.print()">🖨️ Print</button>
+              <button class="print-btn" onclick="window.close()" style="background: #666;">✖️ Close</button>
+            </div>
+            <script>
+              // Auto print after a short delay
+              setTimeout(() => {
+                window.print();
+              }, 500);
+            </script>
+          </body>
+        </html>
+      `);
       printWindow.document.close();
-      printWindow.print();
     }
   };
 
-  const filteredOrders = orders.filter(order => 
-    order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.customer_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.status.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Functional search filter
+  const filteredOrders = orders.filter(order => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      order.id.toLowerCase().includes(searchLower) ||
+      (order.customer_name?.toLowerCase().includes(searchLower) || false) ||
+      (order.customer_email?.toLowerCase().includes(searchLower) || false) ||
+      order.status.toLowerCase().includes(searchLower) ||
+      (order.payment_intent_id?.toLowerCase().includes(searchLower) || false) ||
+      order.formatted_date?.toLowerCase().includes(searchLower) ||
+      order.display_amount?.includes(searchTerm)
+    );
+  });
 
   if (loading) {
     return (
@@ -380,189 +378,296 @@ const AdminOrders = () => {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">Order Management</h1>
-            <p className="text-muted-foreground mt-2">
-              {orders.length} total {orders.length === 1 ? 'order' : 'orders'}
+      <div className="container mx-auto px-4 py-6 sm:py-8">
+        {/* Header with Back Button */}
+        <div className="flex items-center gap-4 mb-6 sm:mb-8">
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => navigate("/admin")}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">Back to Dashboard</span>
+            <span className="sm:hidden">Back</span>
+          </Button>
+          <div className="flex-1">
+            <h1 className="text-2xl sm:text-3xl font-bold">Order Management</h1>
+            <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
+              {orders.length} total {orders.length === 1 ? 'order' : 'orders'} • Showing {filteredOrders.length}
             </p>
           </div>
-          <Button asChild variant="outline">
-            <Link to="/admin">
-              Back to Dashboard
-            </Link>
-          </Button>
         </div>
 
-        {/* Search */}
-        <Card className="mb-6">
-          <CardContent className="pt-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Search by order ID, name, or email..."
-                className="pl-10"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-          </CardContent>
-        </Card>
+        {/* Search Bar - Now Functional */}
+        <div className="mb-6 sm:mb-8">
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Search by order ID, customer name, email, status, amount..."
+              className="pl-10"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm("")}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          {searchTerm && (
+            <p className="text-sm text-muted-foreground mt-2">
+              Found {filteredOrders.length} order{filteredOrders.length !== 1 ? 's' : ''} matching "{searchTerm}"
+            </p>
+          )}
+        </div>
 
-        {/* Orders Table */}
-        <Card>
-          <CardContent className="p-0 sm:p-6">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="whitespace-nowrap">Order ID</TableHead>
-                    <TableHead className="whitespace-nowrap">Customer</TableHead>
-                    <TableHead className="whitespace-nowrap">Date</TableHead>
-                    <TableHead className="whitespace-nowrap">Items</TableHead>
-                    <TableHead className="whitespace-nowrap">Amount</TableHead>
-                    <TableHead className="whitespace-nowrap">Status</TableHead>
-                    <TableHead className="whitespace-nowrap">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredOrders.length > 0 ? (
-                    filteredOrders.map((order) => (
-                      <TableRow key={order.id} className="hover:bg-muted/50">
-                        <TableCell className="font-mono text-sm">
-                          <span className="inline-block bg-muted px-2 py-1 rounded">
-                            {order.id.slice(0, 8)}...
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            <p className="font-medium">
-                              {order.customer_name}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {order.customer_email}
-                            </p>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {order.formatted_date}
-                        </TableCell>
-                        <TableCell>
-                          <span className="inline-flex items-center justify-center min-w-8 h-8 bg-primary/10 text-primary rounded-full px-2">
-                            {order.item_count || 0}
-                          </span>
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          ₹{order.display_amount}
-                        </TableCell>
-                        <TableCell>
-                          {getStatusBadge(order.status)}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => viewOrderDetails(order)}
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              Details
-                            </Button>
-                            <Select
-                              value={order.status}
-                              onValueChange={(value) => updateOrderStatus(order.id, value)}
-                            >
-                              <SelectTrigger className="w-32">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="pending">Pending</SelectItem>
-                                <SelectItem value="processing">Processing</SelectItem>
-                                <SelectItem value="shipped">Shipped</SelectItem>
-                                <SelectItem value="delivered">Delivered</SelectItem>
-                                <SelectItem value="completed">Completed</SelectItem>
-                                <SelectItem value="cancelled">Cancelled</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </TableCell>
+        {/* Mobile View */}
+        <div className="sm:hidden space-y-4">
+          {filteredOrders.length > 0 ? (
+            filteredOrders.map((order) => (
+              <Card key={order.id} className="p-4">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-medium text-sm">Order #{order.id.slice(0, 8)}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{order.formatted_date}</p>
+                    </div>
+                    {getStatusBadge(order.status)}
+                  </div>
+                  
+                  <div>
+                    <p className="font-medium text-sm">{order.customer_name}</p>
+                    <p className="text-xs text-muted-foreground">{order.customer_email}</p>
+                  </div>
+                  
+                  <div className="flex justify-between text-sm">
+                    <span className="flex items-center">
+                      <IndianRupee className="h-3 w-3 mr-1" />
+                      {order.display_amount}
+                    </span>
+                    <span className="bg-primary/10 text-primary px-2 py-1 rounded-full text-xs">
+                      {order.item_count || 0} items
+                    </span>
+                  </div>
+                  
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-xs"
+                      onClick={() => viewOrderDetails(order)}
+                    >
+                      <Eye className="h-3 w-3 mr-1" />
+                      Details
+                    </Button>
+                    <Select
+                      value={order.status}
+                      onValueChange={(value) => updateOrderStatus(order.id, value)}
+                    >
+                      <SelectTrigger className="w-28 text-xs h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="processing">Processing</SelectItem>
+                        <SelectItem value="shipped">Shipped</SelectItem>
+                        <SelectItem value="delivered">Delivered</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </Card>
+            ))
+          ) : (
+            <Card className="p-8 text-center">
+              <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="font-medium mb-2">
+                {searchTerm ? "No orders found" : "No orders yet"}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {searchTerm ? `No orders match "${searchTerm}"` : "No orders have been placed yet"}
+              </p>
+              {searchTerm && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-4"
+                  onClick={() => setSearchTerm("")}
+                >
+                  Clear Search
+                </Button>
+              )}
+            </Card>
+          )}
+        </div>
+
+        {/* Desktop Table View */}
+        <div className="hidden sm:block">
+          {filteredOrders.length > 0 ? (
+            <Card>
+              <CardContent className="p-0 sm:p-6">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="whitespace-nowrap">Order ID</TableHead>
+                        <TableHead className="whitespace-nowrap">Customer</TableHead>
+                        <TableHead className="whitespace-nowrap">Date</TableHead>
+                        <TableHead className="whitespace-nowrap">Items</TableHead>
+                        <TableHead className="whitespace-nowrap">Amount</TableHead>
+                        <TableHead className="whitespace-nowrap">Status</TableHead>
+                        <TableHead className="whitespace-nowrap">Actions</TableHead>
                       </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-12">
-                        <div className="flex flex-col items-center justify-center">
-                          <Package className="h-16 w-16 text-muted-foreground mb-4" />
-                          <p className="text-lg font-medium mb-2">No orders found</p>
-                          <p className="text-muted-foreground">
-                            {searchTerm ? "Try a different search term" : "No orders have been placed yet"}
-                          </p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredOrders.map((order) => (
+                        <TableRow key={order.id} className="hover:bg-muted/50">
+                          <TableCell className="font-mono text-sm">
+                            <span className="inline-block bg-muted px-2 py-1 rounded text-xs">
+                              {order.id.slice(0, 8)}...
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <p className="font-medium text-sm">
+                                {order.customer_name}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {order.customer_email}
+                              </p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {order.formatted_date}
+                          </TableCell>
+                          <TableCell>
+                            <span className="inline-flex items-center justify-center min-w-8 h-8 bg-primary/10 text-primary rounded-full px-2 text-sm">
+                              {order.item_count || 0}
+                            </span>
+                          </TableCell>
+                          <TableCell className="font-medium text-sm">
+                            ₹{order.display_amount}
+                          </TableCell>
+                          <TableCell>
+                            {getStatusBadge(order.status)}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => viewOrderDetails(order)}
+                                className="text-xs h-8"
+                              >
+                                <Eye className="h-3 w-3 mr-1" />
+                                Details
+                              </Button>
+                              <Select
+                                value={order.status}
+                                onValueChange={(value) => updateOrderStatus(order.id, value)}
+                              >
+                                <SelectTrigger className="w-32 text-xs h-8">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="pending">Pending</SelectItem>
+                                  <SelectItem value="processing">Processing</SelectItem>
+                                  <SelectItem value="shipped">Shipped</SelectItem>
+                                  <SelectItem value="delivered">Delivered</SelectItem>
+                                  <SelectItem value="completed">Completed</SelectItem>
+                                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="p-12 text-center">
+              <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+              <p className="text-lg font-medium mb-2">
+                {searchTerm ? "No matching orders" : "No orders yet"}
+              </p>
+              <p className="text-muted-foreground mb-6">
+                {searchTerm ? `No orders found matching "${searchTerm}"` : "Orders will appear here once customers make purchases"}
+              </p>
+              {searchTerm && (
+                <Button 
+                  variant="outline"
+                  onClick={() => setSearchTerm("")}
+                >
+                  Clear Search
+                </Button>
+              )}
+            </Card>
+          )}
+        </div>
 
-        {/* Order Details Dialog */}
+        {/* Order Details Dialog - Only one print button here */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-[95vw] sm:max-w-2xl">
             {selectedOrder && (
               <>
                 <DialogHeader>
-                  <DialogTitle className="flex items-center justify-between">
-                    <span>Order #{selectedOrder.id.slice(0, 8)}</span>
+                  <DialogTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <span className="text-sm sm:text-base">Order #{selectedOrder.id.slice(0, 8)}</span>
                     {getStatusBadge(selectedOrder.status)}
                   </DialogTitle>
-                  <DialogDescription>
+                  <DialogDescription className="text-xs sm:text-sm">
                     Placed on {selectedOrder.formatted_date}
                   </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-6">
-                  {/* Customer Information */}
+                <div className="space-y-4">
                   <div>
-                    <h3 className="font-semibold mb-3">Billing & Shipping Details</h3>
+                    <h3 className="font-semibold text-sm sm:text-base mb-3">Billing & Shipping Details</h3>
                     <Card>
-                      <CardContent className="pt-6">
+                      <CardContent className="pt-4 sm:pt-6">
                         {(() => {
                           const shippingAddress = typeof selectedOrder.shipping_address === 'string'
                             ? JSON.parse(selectedOrder.shipping_address)
                             : selectedOrder.shipping_address;
                           
                           return (
-                            <div className="space-y-4">
+                            <div className="space-y-3 sm:space-y-4">
                               <div>
-                                <p className="text-sm text-muted-foreground mb-1">Customer Name</p>
-                                <p className="font-medium">{shippingAddress?.full_name || 'N/A'}</p>
+                                <p className="text-xs sm:text-sm text-muted-foreground mb-1">Customer Name</p>
+                                <p className="font-medium text-sm sm:text-base">{shippingAddress?.full_name || 'N/A'}</p>
                               </div>
                               <div>
-                                <p className="text-sm text-muted-foreground mb-1">Email</p>
-                                <p className="font-medium">{shippingAddress?.email || 'N/A'}</p>
+                                <p className="text-xs sm:text-sm text-muted-foreground mb-1">Email</p>
+                                <p className="font-medium text-sm sm:text-base">{shippingAddress?.email || 'N/A'}</p>
                               </div>
                               <div>
-                                <p className="text-sm text-muted-foreground mb-1">Phone</p>
-                                <p className="font-medium">{shippingAddress?.phone || 'N/A'}</p>
+                                <p className="text-xs sm:text-sm text-muted-foreground mb-1">Phone</p>
+                                <p className="font-medium text-sm sm:text-base">{shippingAddress?.phone || 'N/A'}</p>
                               </div>
                               <div>
-                                <p className="text-sm text-muted-foreground mb-1">Shipping Address</p>
-                                <p className="font-medium">
+                                <p className="text-xs sm:text-sm text-muted-foreground mb-1">Shipping Address</p>
+                                <p className="font-medium text-sm sm:text-base">
                                   {shippingAddress?.address || 'N/A'}<br />
                                   {shippingAddress?.city || ''}, {shippingAddress?.state || ''}<br />
                                   Pincode: {shippingAddress?.pincode || ''}
                                 </p>
                               </div>
-                              <div className="pt-4 border-t">
-                                <p className="text-sm text-muted-foreground mb-1">Order Total</p>
-                                <p className="text-lg font-bold flex items-center">
-                                  <IndianRupee className="h-4 w-4 mr-1" />
+                              <div className="pt-3 sm:pt-4 border-t">
+                                <p className="text-xs sm:text-sm text-muted-foreground mb-1">Order Total</p>
+                                <p className="text-lg sm:text-xl font-bold flex items-center">
+                                  <IndianRupee className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                                   {selectedOrder.display_amount}
                                 </p>
-                                <p className="text-sm text-muted-foreground mt-1">
+                                <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                                   Items: {selectedOrder.item_count || 0}
                                 </p>
                               </div>
@@ -573,16 +678,16 @@ const AdminOrders = () => {
                     </Card>
                   </div>
 
-                  {/* Action Buttons */}
-                  <div className="flex justify-between">
+                  <div className="flex flex-col sm:flex-row justify-between gap-3">
                     <Button
                       variant="outline"
+                      size="sm"
                       onClick={printOrderDetails}
                     >
-                      <Printer className="h-4 w-4 mr-2" />
-                      Print Details
+                      <Printer className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                      <span className="text-xs sm:text-sm">Print Details</span>
                     </Button>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <Select
                         value={selectedOrder.status}
                         onValueChange={(value) => {
@@ -590,7 +695,7 @@ const AdminOrders = () => {
                           setSelectedOrder({...selectedOrder, status: value});
                         }}
                       >
-                        <SelectTrigger className="w-40">
+                        <SelectTrigger className="w-full sm:w-40 text-xs sm:text-sm h-9">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -602,7 +707,7 @@ const AdminOrders = () => {
                           <SelectItem value="cancelled">Cancelled</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Button onClick={() => setIsDialogOpen(false)}>
+                      <Button size="sm" onClick={() => setIsDialogOpen(false)} className="h-9">
                         Close
                       </Button>
                     </div>

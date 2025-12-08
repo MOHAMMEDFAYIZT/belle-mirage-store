@@ -29,7 +29,7 @@ const SearchResults = () => {
         .from('products')
         .select('*')
         .or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,category.ilike.%${searchTerm}%`)
-        .eq('in_stock', true) // <-- only fetch in-stock items
+        .eq('in_stock', true)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -66,8 +66,8 @@ const SearchResults = () => {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <div className="container mx-auto px-4 py-8">
-        <form onSubmit={handleSearch} className="mb-8">
+      <div className="container mx-auto px-4 py-6 sm:py-8">
+        <form onSubmit={handleSearch} className="mb-6 sm:mb-8">
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -76,42 +76,42 @@ const SearchResults = () => {
                 placeholder="Search products..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                className="pl-10"
+                className="pl-10 text-sm sm:text-base"
               />
             </div>
-            <Button type="submit">Search</Button>
+            <Button type="submit" className="text-sm sm:text-base">Search</Button>
           </div>
         </form>
 
-        <h1 className="text-2xl font-bold mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">
           {query ? `Search results for "${query}"` : "Search Products"}
         </h1>
 
         {loading ? (
-          <div className="flex justify-center py-12">
-            <p>Searching...</p>
+          <div className="flex justify-center py-8 sm:py-12">
+            <p className="text-sm sm:text-base">Searching...</p>
           </div>
         ) : products.length > 0 ? (
           <>
-            <p className="text-muted-foreground mb-6">
+            <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">
               Found {products.length} product{products.length !== 1 ? 's' : ''}
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6 lg:gap-8">
               {products.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>
           </>
         ) : query ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">No products found for "{query}"</p>
-            <Button onClick={() => navigate("/")} className="mt-4">
+          <div className="text-center py-8 sm:py-12">
+            <p className="text-sm sm:text-base text-muted-foreground">No products found for "{query}"</p>
+            <Button onClick={() => navigate("/")} className="mt-4 text-sm sm:text-base">
               Browse All Products
             </Button>
           </div>
         ) : (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">Enter a search term to find products</p>
+          <div className="text-center py-8 sm:py-12">
+            <p className="text-sm sm:text-base text-muted-foreground">Enter a search term to find products</p>
           </div>
         )}
       </div>
