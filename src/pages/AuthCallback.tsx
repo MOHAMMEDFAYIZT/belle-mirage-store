@@ -7,36 +7,35 @@ const AuthCallback = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const handleAuthCallback = async () => {
-      // Read hash params (? / #) safely
-      const hash = window.location.hash;
-      const params = new URLSearchParams(hash.replace("#", ""));
-      const type = params.get("type");
-
-      // VERY IMPORTANT: this consumes the tokens in URL
+    const handleAuth = async () => {
+      // Consume the session from URL (VERY IMPORTANT)
       const { data, error } = await supabase.auth.getSession();
 
       if (error) {
-        console.error("Auth callback error:", error);
+        console.error(error);
         navigate("/login");
         return;
       }
 
+      const session = data.session;
+
       // ✅ PASSWORD RECOVERY FLOW
-      if (type === "recovery") {
+      // Supabase auto-logs in user → we must force reset-password page
+      if (session?.user?.recovery_sent_at) {
         navigate("/reset-password");
         return;
       }
 
-      // ✅ NORMAL SIGN-IN / EMAIL VERIFY / GOOGLE
-      if (data.session) {
+      // ✅ NORMAL LOGIN / EMAIL VERIFY / GOOGLE
+      if (session) {
         navigate("/");
-      } else {
-        navigate("/login");
+        return;
       }
+
+      navigate("/login");
     };
 
-    handleAuthCallback();
+    handleAuth();
   }, [navigate]);
 
   return (
