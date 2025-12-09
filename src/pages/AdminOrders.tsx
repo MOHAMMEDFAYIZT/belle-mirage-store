@@ -4,48 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import {
-  Search,
-  Eye,
-  Package,
-  IndianRupee,
-  Printer,
-  ArrowLeft,
-} from "lucide-react";
-
-interface OrderItem {
-  id: string;
-  product_id: string;
-  quantity: number | string;
-  price: number;
-  size?: string | null;
-  color?: string | null;
-}
+import { Search, Eye, Package, IndianRupee, User, Printer, ArrowLeft, Package2, Hash, Palette, Ruler, ShoppingBag } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface Order {
   id: string;
@@ -64,12 +30,22 @@ interface Order {
   order_items?: OrderItem[];
 }
 
+interface OrderItem {
+  id: string;
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  price: number;
+  size: string;
+  color: string;
+}
+
 const AdminOrders = () => {
   const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-
+  
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -79,22 +55,19 @@ const AdminOrders = () => {
 
   const checkAdminAndLoadOrders = async () => {
     try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
       if (userError || !user) {
         navigate("/login");
         return;
       }
 
       const { data: roleData, error: roleError } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "admin")
-        .maybeSingle(); // ✅ avoid 406 when not admin
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin')
+        .single();
 
       if (roleError || !roleData) {
         toast.error("Access denied. Admin privileges required.");
@@ -111,10 +84,10 @@ const AdminOrders = () => {
 
   const loadOrders = async () => {
     try {
+      // Get orders with order items
       const { data: ordersData, error: ordersError } = await supabase
-        .from("orders")
-        .select(
-          `
+        .from('orders')
+        .select(`
           *,
           order_items (
             id,
@@ -124,9 +97,8 @@ const AdminOrders = () => {
             size,
             color
           )
-        `
-        )
-        .order("created_at", { ascending: false });
+        `)
+        .order('created_at', { ascending: false });
 
       if (ordersError) throw ordersError;
 
@@ -136,58 +108,68 @@ const AdminOrders = () => {
         return;
       }
 
-      const ordersWithCounts = await Promise.all(
+      const ordersWithDetails = await Promise.all(
         ordersData.map(async (order: any) => {
           let itemCount = 0;
           let orderItems: OrderItem[] = [];
-
+          
           if (order.order_items && order.order_items.length > 0) {
-            orderItems = order.order_items as OrderItem[];
+            // Get product names for each order item
+            const itemsWithProductNames = await Promise.all(
+              order.order_items.map(async (item: any) => {
+                // Get product details
+                const { data: product } = await supabase
+                  .from('products')
+                  .select('name')
+                  .eq('id', item.product_id)
+                  .single();
+                
+                return {
+                  ...item,
+                  product_name: product?.name || `Product ${item.product_id.slice(0, 8)}`
+                };
+              })
+            );
+            
+            orderItems = itemsWithProductNames;
             itemCount = orderItems.reduce((total: number, item: any) => {
               let qty = item.quantity;
-              if (typeof qty === "number") return total + qty;
-              if (typeof qty === "string") {
+              if (typeof qty === 'number') return total + qty;
+              if (typeof qty === 'string') {
                 const parsed = parseInt(qty, 10);
                 return total + (isNaN(parsed) ? 0 : parsed);
               }
-              return total;
+              return total + 0;
             }, 0);
           }
 
+          // Get customer info from shipping address
           let customerName = "Unknown Customer";
           let customerEmail = "No email";
           let customerPhone = "No phone";
-
+          
           if (order.shipping_address) {
             try {
-              const shippingAddress =
-                typeof order.shipping_address === "string"
-                  ? JSON.parse(order.shipping_address)
-                  : order.shipping_address;
-
-              customerName =
-                shippingAddress.full_name ||
-                `User ${order.user_id.slice(0, 8)}`;
-              customerEmail = shippingAddress.email || "No email";
-              customerPhone = shippingAddress.phone || "No phone";
+              const shippingAddress = typeof order.shipping_address === 'string'
+                ? JSON.parse(order.shipping_address)
+                : order.shipping_address;
+              
+              customerName = shippingAddress.full_name || `User ${order.user_id.slice(0, 8)}`;
+              customerEmail = shippingAddress.email || 'No email';
+              customerPhone = shippingAddress.phone || 'No phone';
             } catch (e) {
-              console.error(
-                `Error parsing shipping address for order ${order.id}:`,
-                e
-              );
+              console.error(`Error parsing shipping address for order ${order.id}:`, e);
             }
           }
 
-          const formattedDate = new Date(order.created_at).toLocaleDateString(
-            "en-IN",
-            {
-              day: "numeric",
-              month: "short",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            }
-          );
+          // Format date
+          const formattedDate = new Date(order.created_at).toLocaleDateString('en-IN', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
 
           return {
             ...order,
@@ -197,12 +179,13 @@ const AdminOrders = () => {
             item_count: itemCount,
             formatted_date: formattedDate,
             display_amount: (order.total_amount || 0).toFixed(2),
-            order_items: orderItems,
+            order_items: orderItems
           };
         })
       );
 
-      setOrders(ordersWithCounts);
+      setOrders(ordersWithDetails);
+      
     } catch (error: any) {
       console.error("❌ Error loading orders:", error);
       toast.error("Failed to load orders");
@@ -214,59 +197,43 @@ const AdminOrders = () => {
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
       const { error } = await supabase
-        .from("orders")
-        .update({
-          status: newStatus,
-          updated_at: new Date().toISOString(),
+        .from('orders')
+        .update({ 
+          status: newStatus, 
+          updated_at: new Date().toISOString() 
         })
-        .eq("id", orderId);
+        .eq('id', orderId);
 
       if (error) throw error;
 
       toast.success("Order status updated");
-
-      setOrders((prevOrders) =>
-        prevOrders.map((order) =>
-          order.id === orderId ? { ...order, status: newStatus } : order
+      
+      setOrders(prevOrders => 
+        prevOrders.map(order => 
+          order.id === orderId 
+            ? { ...order, status: newStatus }
+            : order
         )
       );
+
     } catch (error: any) {
       toast.error("Failed to update status: " + error.message);
     }
   };
 
   const getStatusBadge = (status: string) => {
-    const statusMap: Record<
-      string,
-      { label: string; color: string }
-    > = {
+    const statusMap: Record<string, { label: string, color: string }> = {
       pending: { label: "Pending", color: "bg-yellow-100 text-yellow-800" },
       paid: { label: "Paid", color: "bg-blue-100 text-blue-800" },
-      processing: {
-        label: "Processing",
-        color: "bg-purple-100 text-purple-800",
-      },
+      processing: { label: "Processing", color: "bg-purple-100 text-purple-800" },
       shipped: { label: "Shipped", color: "bg-indigo-100 text-indigo-800" },
-      delivered: {
-        label: "Delivered",
-        color: "bg-green-100 text-green-800",
-      },
-      completed: {
-        label: "Completed",
-        color: "bg-green-100 text-green-800",
-      },
-      cancelled: {
-        label: "Cancelled",
-        color: "bg-red-100 text-red-800",
-      },
+      delivered: { label: "Delivered", color: "bg-green-100 text-green-800" },
+      completed: { label: "Completed", color: "bg-green-100 text-green-800" },
+      cancelled: { label: "Cancelled", color: "bg-red-100 text-red-800" },
     };
 
-    const statusInfo =
-      statusMap[status.toLowerCase()] || {
-        label: status,
-        color: "bg-gray-100 text-gray-800",
-      };
-
+    const statusInfo = statusMap[status.toLowerCase()] || { label: status, color: "bg-gray-100 text-gray-800" };
+    
     return (
       <Badge className={`${statusInfo.color} text-xs`}>
         {statusInfo.label}
@@ -281,84 +248,80 @@ const AdminOrders = () => {
 
   const printOrderDetails = () => {
     if (!selectedOrder) return;
-
-    const shippingAddress =
-      typeof selectedOrder.shipping_address === "string"
-        ? JSON.parse(selectedOrder.shipping_address)
-        : selectedOrder.shipping_address;
-
-    // ✅ Build items text for printing
-    const items = selectedOrder.order_items || [];
-    const itemsText =
-      items.length > 0
-        ? items
-            .map((item, index) => {
-              const qty =
-                typeof item.quantity === "string"
-                  ? parseInt(item.quantity, 10) || 0
-                  : item.quantity || 0;
-              return [
-                `Item ${index + 1}:`,
-                `  Product ID : ${item.product_id}`,
-                `  Size       : ${item.size || "N/A"}`,
-                `  Color      : ${item.color || "N/A"}`,
-                `  Quantity   : ${qty}`,
-                `  Price      : ₹${item.price?.toFixed
-                  ? item.price.toFixed(2)
-                  : item.price}`,
-              ].join("\n");
-            })
-            .join("\n\n")
-        : "No item details available.";
-
+    
+    const shippingAddress = typeof selectedOrder.shipping_address === 'string'
+      ? JSON.parse(selectedOrder.shipping_address)
+      : selectedOrder.shipping_address;
+    
+    // Create detailed product list for printing
+    let productDetails = "";
+    if (selectedOrder.order_items && selectedOrder.order_items.length > 0) {
+      productDetails = "ORDER ITEMS:\n";
+      selectedOrder.order_items.forEach((item, index) => {
+        productDetails += `\n${index + 1}. ${item.product_name}\n`;
+        productDetails += `   Product ID: ${item.product_id}\n`;
+        productDetails += `   Quantity: ${item.quantity}\n`;
+        productDetails += `   Size: ${item.size}\n`;
+        productDetails += `   Color: ${item.color}\n`;
+        productDetails += `   Price: ₹${item.price} each\n`;
+        productDetails += `   Subtotal: ₹${(item.price * item.quantity).toFixed(2)}\n`;
+      });
+    }
+    
     const content = `
-=========================================
-           ORDER DETAILS
-=========================================
+=================================================
+               ORDER DETAILS - SHIPPING
+=================================================
 
-ORDER INFORMATION
+ORDER INFORMATION:
 -----------------------------------------
-Order ID     : ${selectedOrder.id}
-Order Date   : ${selectedOrder.formatted_date}
-Order Status : ${selectedOrder.status.toUpperCase()}
+Order ID:      ${selectedOrder.id}
+Order Date:    ${selectedOrder.formatted_date}
+Order Status:  ${selectedOrder.status.toUpperCase()}
 
-CUSTOMER INFORMATION
+CUSTOMER INFORMATION:
 -----------------------------------------
-Name   : ${shippingAddress?.full_name || "N/A"}
-Email  : ${shippingAddress?.email || "N/A"}
-Phone  : ${shippingAddress?.phone || "N/A"}
+Name:          ${shippingAddress?.full_name || 'N/A'}
+Email:         ${shippingAddress?.email || 'N/A'}
+Phone:         ${shippingAddress?.phone || 'N/A'}
 
-SHIPPING ADDRESS
+SHIPPING ADDRESS:
 -----------------------------------------
-${shippingAddress?.address || "N/A"}
-${shippingAddress?.city || ""}, ${shippingAddress?.state || ""}
-Pincode: ${shippingAddress?.pincode || "N/A"}
+${shippingAddress?.address || 'N/A'}
+${shippingAddress?.city || ''}, ${shippingAddress?.state || ''}
+Pincode:       ${shippingAddress?.pincode || 'N/A'}
 
-ORDER ITEMS
+${productDetails}
+
+ORDER SUMMARY:
 -----------------------------------------
-${itemsText}
+Total Items:   ${selectedOrder.item_count || 0}
+Total Amount:  ₹${selectedOrder.display_amount}
 
-BILLING DETAILS
------------------------------------------
-Total Items : ${selectedOrder.item_count || 0}
-Total Amount: ₹${selectedOrder.display_amount}
+=================================================
+                PACKING CHECKLIST
+=================================================
+✓ Verify all items listed above
+✓ Check sizes and colors match
+✓ Ensure proper packaging
+✓ Attach shipping label
+✓ Update order status to "Shipped"
 
-=========================================
-Printed: ${new Date().toLocaleString("en-IN")}
-=========================================
+Printed: ${new Date().toLocaleString('en-IN')}
+=================================================
     `;
-
-    const printWindow = window.open("", "_blank");
+    
+    const printWindow = window.open('', '_blank');
     if (printWindow) {
       printWindow.document.write(`
         <html>
           <head>
-            <title>Order Details - ${selectedOrder.id}</title>
+            <title>Shipping Details - Order ${selectedOrder.id}</title>
             <style>
               @media print {
                 body {
                   font-family: 'Courier New', monospace;
-                  font-size: 12px;
+                  font-size: 11px;
                   line-height: 1.3;
                   margin: 0;
                   padding: 15px;
@@ -377,8 +340,8 @@ Printed: ${new Date().toLocaleString("en-IN")}
               @media screen {
                 body {
                   font-family: 'Courier New', monospace;
-                  font-size: 14px;
-                  line-height: 1.4;
+                  font-size: 12px;
+                  line-height: 1.3;
                   margin: 20px;
                   padding: 20px;
                   background: #f5f5f5;
@@ -419,7 +382,7 @@ Printed: ${new Date().toLocaleString("en-IN")}
           <body>
             <pre>${content}</pre>
             <div class="print-controls no-print">
-              <button class="print-btn" onclick="window.print()">🖨️ Print</button>
+              <button class="print-btn" onclick="window.print()">🖨️ Print for Shipping</button>
               <button class="print-btn" onclick="window.close()" style="background: #666;">✖️ Close</button>
             </div>
             <script>
@@ -434,15 +397,14 @@ Printed: ${new Date().toLocaleString("en-IN")}
     }
   };
 
-  const filteredOrders = orders.filter((order) => {
+  // Functional search filter
+  const filteredOrders = orders.filter(order => {
     const searchLower = searchTerm.toLowerCase();
     return (
       order.id.toLowerCase().includes(searchLower) ||
       (order.customer_name?.toLowerCase().includes(searchLower) || false) ||
       (order.customer_email?.toLowerCase().includes(searchLower) || false) ||
       order.status.toLowerCase().includes(searchLower) ||
-      (order.payment_intent_id?.toLowerCase().includes(searchLower) || false) ||
-      order.formatted_date?.toLowerCase().includes(searchLower) ||
       order.display_amount?.includes(searchTerm)
     );
   });
@@ -463,11 +425,12 @@ Printed: ${new Date().toLocaleString("en-IN")}
   return (
     <div className="min-h-screen bg-background">
       <Header />
-
+      
       <div className="container mx-auto px-4 py-6 sm:py-8">
+        {/* Header with Back Button */}
         <div className="flex items-center gap-4 mb-6 sm:mb-8">
-          <Button
-            variant="ghost"
+          <Button 
+            variant="ghost" 
             size="sm"
             onClick={() => navigate("/admin")}
             className="flex items-center gap-2"
@@ -479,18 +442,17 @@ Printed: ${new Date().toLocaleString("en-IN")}
           <div className="flex-1">
             <h1 className="text-2xl sm:text-3xl font-bold">Order Management</h1>
             <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
-              {orders.length} total {orders.length === 1 ? "order" : "orders"} •
-              Showing {filteredOrders.length}
+              {orders.length} total {orders.length === 1 ? 'order' : 'orders'} • Showing {filteredOrders.length}
             </p>
           </div>
         </div>
 
-        {/* Search */}
+        {/* Search Bar */}
         <div className="mb-6 sm:mb-8">
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
-              placeholder="Search by order ID, customer name, email, status, amount..."
+              placeholder="Search by order ID, customer name, email, status..."
               className="pl-10"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -504,15 +466,9 @@ Printed: ${new Date().toLocaleString("en-IN")}
               </button>
             )}
           </div>
-          {searchTerm && (
-            <p className="text-sm text-muted-foreground mt-2">
-              Found {filteredOrders.length} order
-              {filteredOrders.length !== 1 ? "s" : ""} matching "{searchTerm}"
-            </p>
-          )}
         </div>
 
-        {/* Mobile cards */}
+        {/* Mobile View */}
         <div className="sm:hidden space-y-4">
           {filteredOrders.length > 0 ? (
             filteredOrders.map((order) => (
@@ -520,25 +476,17 @@ Printed: ${new Date().toLocaleString("en-IN")}
                 <div className="space-y-3">
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className="font-medium text-sm">
-                        Order #{order.id.slice(0, 8)}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {order.formatted_date}
-                      </p>
+                      <p className="font-medium text-sm">Order #{order.id.slice(0, 8)}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{order.formatted_date}</p>
                     </div>
                     {getStatusBadge(order.status)}
                   </div>
-
+                  
                   <div>
-                    <p className="font-medium text-sm">
-                      {order.customer_name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {order.customer_email}
-                    </p>
+                    <p className="font-medium text-sm">{order.customer_name}</p>
+                    <p className="text-xs text-muted-foreground">{order.customer_email}</p>
                   </div>
-
+                  
                   <div className="flex justify-between text-sm">
                     <span className="flex items-center">
                       <IndianRupee className="h-3 w-3 mr-1" />
@@ -548,7 +496,7 @@ Printed: ${new Date().toLocaleString("en-IN")}
                       {order.item_count || 0} items
                     </span>
                   </div>
-
+                  
                   <div className="flex gap-2 pt-2">
                     <Button
                       variant="outline"
@@ -561,9 +509,7 @@ Printed: ${new Date().toLocaleString("en-IN")}
                     </Button>
                     <Select
                       value={order.status}
-                      onValueChange={(value) =>
-                        updateOrderStatus(order.id, value)
-                      }
+                      onValueChange={(value) => updateOrderStatus(order.id, value)}
                     >
                       <SelectTrigger className="w-28 text-xs h-9">
                         <SelectValue />
@@ -588,25 +534,13 @@ Printed: ${new Date().toLocaleString("en-IN")}
                 {searchTerm ? "No orders found" : "No orders yet"}
               </p>
               <p className="text-sm text-muted-foreground">
-                {searchTerm
-                  ? `No orders match "${searchTerm}"`
-                  : "No orders have been placed yet"}
+                {searchTerm ? `No orders match "${searchTerm}"` : "No orders have been placed yet"}
               </p>
-              {searchTerm && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-4"
-                  onClick={() => setSearchTerm("")}
-                >
-                  Clear Search
-                </Button>
-              )}
             </Card>
           )}
         </div>
 
-        {/* Desktop table */}
+        {/* Desktop Table View */}
         <div className="hidden sm:block">
           {filteredOrders.length > 0 ? (
             <Card>
@@ -615,13 +549,13 @@ Printed: ${new Date().toLocaleString("en-IN")}
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Order ID</TableHead>
-                        <TableHead>Customer</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Items</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Actions</TableHead>
+                        <TableHead className="whitespace-nowrap">Order ID</TableHead>
+                        <TableHead className="whitespace-nowrap">Customer</TableHead>
+                        <TableHead className="whitespace-nowrap">Date</TableHead>
+                        <TableHead className="whitespace-nowrap">Items</TableHead>
+                        <TableHead className="whitespace-nowrap">Amount</TableHead>
+                        <TableHead className="whitespace-nowrap">Status</TableHead>
+                        <TableHead className="whitespace-nowrap">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -653,7 +587,9 @@ Printed: ${new Date().toLocaleString("en-IN")}
                           <TableCell className="font-medium text-sm">
                             ₹{order.display_amount}
                           </TableCell>
-                          <TableCell>{getStatusBadge(order.status)}</TableCell>
+                          <TableCell>
+                            {getStatusBadge(order.status)}
+                          </TableCell>
                           <TableCell>
                             <div className="flex gap-2">
                               <Button
@@ -667,32 +603,18 @@ Printed: ${new Date().toLocaleString("en-IN")}
                               </Button>
                               <Select
                                 value={order.status}
-                                onValueChange={(value) =>
-                                  updateOrderStatus(order.id, value)
-                                }
+                                onValueChange={(value) => updateOrderStatus(order.id, value)}
                               >
                                 <SelectTrigger className="w-32 text-xs h-8">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="pending">
-                                    Pending
-                                  </SelectItem>
-                                  <SelectItem value="processing">
-                                    Processing
-                                  </SelectItem>
-                                  <SelectItem value="shipped">
-                                    Shipped
-                                  </SelectItem>
-                                  <SelectItem value="delivered">
-                                    Delivered
-                                  </SelectItem>
-                                  <SelectItem value="completed">
-                                    Completed
-                                  </SelectItem>
-                                  <SelectItem value="cancelled">
-                                    Cancelled
-                                  </SelectItem>
+                                  <SelectItem value="pending">Pending</SelectItem>
+                                  <SelectItem value="processing">Processing</SelectItem>
+                                  <SelectItem value="shipped">Shipped</SelectItem>
+                                  <SelectItem value="delivered">Delivered</SelectItem>
+                                  <SelectItem value="completed">Completed</SelectItem>
+                                  <SelectItem value="cancelled">Cancelled</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
@@ -711,29 +633,20 @@ Printed: ${new Date().toLocaleString("en-IN")}
                 {searchTerm ? "No matching orders" : "No orders yet"}
               </p>
               <p className="text-muted-foreground mb-6">
-                {searchTerm
-                  ? `No orders found matching "${searchTerm}"`
-                  : "Orders will appear here once customers make purchases"}
+                {searchTerm ? `No orders found matching "${searchTerm}"` : "Orders will appear here once customers make purchases"}
               </p>
-              {searchTerm && (
-                <Button variant="outline" onClick={() => setSearchTerm("")}>
-                  Clear Search
-                </Button>
-              )}
             </Card>
           )}
         </div>
 
-        {/* Order Details Dialog */}
+        {/* Order Details Dialog with Complete Product Information */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="max-w-[95vw] sm:max-w-2xl">
+          <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
             {selectedOrder && (
               <>
                 <DialogHeader>
                   <DialogTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <span className="text-sm sm:text-base">
-                      Order #{selectedOrder.id.slice(0, 8)}
-                    </span>
+                    <span className="text-sm sm:text-base">Order #{selectedOrder.id.slice(0, 8)}</span>
                     {getStatusBadge(selectedOrder.status)}
                   </DialogTitle>
                   <DialogDescription className="text-xs sm:text-sm">
@@ -742,164 +655,163 @@ Printed: ${new Date().toLocaleString("en-IN")}
                 </DialogHeader>
 
                 <div className="space-y-4">
-                  {/* Billing & Shipping */}
+                  {/* Customer & Shipping Information */}
                   <div>
-                    <h3 className="font-semibold text-sm sm:text-base mb-3">
-                      Billing & Shipping Details
+                    <h3 className="font-semibold text-sm sm:text-base mb-3 flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Customer & Shipping Information
                     </h3>
                     <Card>
                       <CardContent className="pt-4 sm:pt-6">
-                        {(() => {
-                          const shippingAddress =
-                            typeof selectedOrder.shipping_address === "string"
-                              ? JSON.parse(selectedOrder.shipping_address)
-                              : selectedOrder.shipping_address;
-
-                          return (
-                            <div className="space-y-3 sm:space-y-4">
-                              <div>
-                                <p className="text-xs sm:text-sm text-muted-foreground mb-1">
-                                  Customer Name
-                                </p>
-                                <p className="font-medium text-sm sm:text-base">
-                                  {shippingAddress?.full_name || "N/A"}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-xs sm:text-sm text-muted-foreground mb-1">
-                                  Email
-                                </p>
-                                <p className="font-medium text-sm sm:text-base">
-                                  {shippingAddress?.email || "N/A"}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-xs sm:text-sm text-muted-foreground mb-1">
-                                  Phone
-                                </p>
-                                <p className="font-medium text-sm sm:text-base">
-                                  {shippingAddress?.phone || "N/A"}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-xs sm:text-sm text-muted-foreground mb-1">
-                                  Shipping Address
-                                </p>
-                                <p className="font-medium text-sm sm:text-base">
-                                  {shippingAddress?.address || "N/A"}
-                                  <br />
-                                  {shippingAddress?.city || ""},{" "}
-                                  {shippingAddress?.state || ""}
-                                  <br />
-                                  Pincode: {shippingAddress?.pincode || ""}
-                                </p>
-                              </div>
-                              <div className="pt-3 sm:pt-4 border-t">
-                                <p className="text-xs sm:text-sm text-muted-foreground mb-1">
-                                  Order Total
-                                </p>
-                                <p className="text-lg sm:text-xl font-bold flex items-center">
-                                  <IndianRupee className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                                  {selectedOrder.display_amount}
-                                </p>
-                                <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                                  Items: {selectedOrder.item_count || 0}
-                                </p>
-                              </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                          <div className="space-y-3 sm:space-y-4">
+                            <div>
+                              <p className="text-xs sm:text-sm text-muted-foreground mb-1">Customer Name</p>
+                              <p className="font-medium text-sm sm:text-base">{selectedOrder.customer_name || 'N/A'}</p>
                             </div>
-                          );
-                        })()}
+                            <div>
+                              <p className="text-xs sm:text-sm text-muted-foreground mb-1">Email</p>
+                              <p className="font-medium text-sm sm:text-base">{selectedOrder.customer_email || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs sm:text-sm text-muted-foreground mb-1">Phone</p>
+                              <p className="font-medium text-sm sm:text-base">{selectedOrder.customer_phone || 'N/A'}</p>
+                            </div>
+                          </div>
+                          <div className="space-y-3 sm:space-y-4">
+                            <div>
+                              <p className="text-xs sm:text-sm text-muted-foreground mb-1">Shipping Address</p>
+                              <p className="font-medium text-sm sm:text-base">
+                                {(() => {
+                                  const shippingAddress = typeof selectedOrder.shipping_address === 'string'
+                                    ? JSON.parse(selectedOrder.shipping_address)
+                                    : selectedOrder.shipping_address;
+                                  
+                                  return (
+                                    <>
+                                      {shippingAddress?.address || 'N/A'}<br />
+                                      {shippingAddress?.city || ''}, {shippingAddress?.state || ''}<br />
+                                      Pincode: {shippingAddress?.pincode || ''}
+                                    </>
+                                  );
+                                })()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
                       </CardContent>
                     </Card>
                   </div>
 
-                  {/* ✅ Order Items */}
+                  {/* Product Details - Complete Information */}
                   <div>
-                    <h3 className="font-semibold text-sm sm:text-base mb-3">
-                      Order Items
+                    <h3 className="font-semibold text-sm sm:text-base mb-3 flex items-center gap-2">
+                      <Package2 className="h-4 w-4" />
+                      Order Items ({selectedOrder.item_count || 0})
                     </h3>
                     <Card>
-                      <CardContent className="pt-4 sm:pt-6">
-                        {selectedOrder.order_items &&
-                        selectedOrder.order_items.length > 0 ? (
-                          <div className="space-y-3">
-                            {selectedOrder.order_items.map((item, index) => {
-                              const qty =
-                                typeof item.quantity === "string"
-                                  ? parseInt(item.quantity, 10) || 0
-                                  : item.quantity || 0;
-
-                              return (
-                                <div
-                                  key={item.id || index}
-                                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b last:border-b-0 pb-2 sm:pb-3"
-                                >
-                                  <div className="space-y-1">
-                                    <p className="text-xs text-muted-foreground">
-                                      Product ID
-                                    </p>
-                                    <p className="font-mono text-xs sm:text-sm bg-muted inline-block px-2 py-1 rounded">
-                                      {item.product_id}
-                                    </p>
-                                    <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                                      Size:{" "}
-                                      <span className="font-medium">
-                                        {item.size || "N/A"}
-                                      </span>{" "}
-                                      • Color:{" "}
-                                      <span className="font-medium">
-                                        {item.color || "N/A"}
-                                      </span>
-                                    </p>
-                                  </div>
-                                  <div className="text-xs sm:text-sm text-right">
-                                    <p>
-                                      Qty:{" "}
-                                      <span className="font-medium">{qty}</span>
-                                    </p>
-                                    <p>
-                                      Price:{" "}
-                                      <span className="font-medium">
-                                        ₹
-                                        {item.price?.toFixed
-                                          ? item.price.toFixed(2)
-                                          : item.price}
-                                      </span>
-                                    </p>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <p className="text-xs sm:text-sm text-muted-foreground">
-                            No item details available for this order.
-                          </p>
-                        )}
+                      <CardContent className="pt-4 sm:pt-6 p-0">
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead>
+                              <tr className="border-b bg-muted/50">
+                                <th className="text-left p-3 text-xs sm:text-sm font-medium">Product</th>
+                                <th className="text-left p-3 text-xs sm:text-sm font-medium">Product ID</th>
+                                <th className="text-left p-3 text-xs sm:text-sm font-medium">Size</th>
+                                <th className="text-left p-3 text-xs sm:text-sm font-medium">Color</th>
+                                <th className="text-left p-3 text-xs sm:text-sm font-medium">Qty</th>
+                                <th className="text-left p-3 text-xs sm:text-sm font-medium">Price</th>
+                                <th className="text-left p-3 text-xs sm:text-sm font-medium">Subtotal</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {selectedOrder.order_items && selectedOrder.order_items.length > 0 ? (
+                                selectedOrder.order_items.map((item, index) => (
+                                  <tr key={item.id} className="border-b hover:bg-muted/30">
+                                    <td className="p-3">
+                                      <div className="flex items-center gap-2">
+                                        <ShoppingBag className="h-4 w-4 text-muted-foreground" />
+                                        <span className="text-xs sm:text-sm font-medium">{item.product_name}</span>
+                                      </div>
+                                    </td>
+                                    <td className="p-3">
+                                      <div className="flex items-center gap-1">
+                                        <Hash className="h-3 w-3 text-muted-foreground" />
+                                        <span className="text-xs font-mono">{item.product_id.slice(0, 8)}...</span>
+                                      </div>
+                                    </td>
+                                    <td className="p-3">
+                                      <div className="flex items-center gap-1">
+                                        <Ruler className="h-3 w-3 text-muted-foreground" />
+                                        <span className="text-xs sm:text-sm">{item.size}</span>
+                                      </div>
+                                    </td>
+                                    <td className="p-3">
+                                      <div className="flex items-center gap-1">
+                                        <Palette className="h-3 w-3 text-muted-foreground" />
+                                        <span className="text-xs sm:text-sm">{item.color}</span>
+                                      </div>
+                                    </td>
+                                    <td className="p-3 text-xs sm:text-sm font-medium">{item.quantity}</td>
+                                    <td className="p-3 text-xs sm:text-sm">₹{item.price}</td>
+                                    <td className="p-3 text-xs sm:text-sm font-medium">
+                                      ₹{(item.price * item.quantity).toFixed(2)}
+                                    </td>
+                                  </tr>
+                                ))
+                              ) : (
+                                <tr>
+                                  <td colSpan={7} className="p-6 text-center text-muted-foreground">
+                                    No items found in this order
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
                       </CardContent>
                     </Card>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row justify-between gap-3">
+                  {/* Order Summary */}
+                  <div>
+                    <h3 className="font-semibold text-sm sm:text-base mb-3">Order Summary</h3>
+                    <Card>
+                      <CardContent className="pt-4 sm:pt-6">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="text-xs sm:text-sm text-muted-foreground">Total Items</p>
+                            <p className="text-lg sm:text-xl font-bold">{selectedOrder.item_count || 0}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs sm:text-sm text-muted-foreground">Total Amount</p>
+                            <p className="text-lg sm:text-xl font-bold flex items-center justify-end">
+                              <IndianRupee className="h-4 w-4 sm:h-5 sm:w-5 mr-1" />
+                              {selectedOrder.display_amount}
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex flex-col sm:flex-row justify-between gap-3 pt-4">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={printOrderDetails}
+                      className="flex-1 sm:flex-none"
                     >
                       <Printer className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
-                      <span className="text-xs sm:text-sm">
-                        Print Details
-                      </span>
+                      <span className="text-xs sm:text-sm">Print Shipping Details</span>
                     </Button>
                     <div className="flex flex-col sm:flex-row gap-2">
                       <Select
                         value={selectedOrder.status}
                         onValueChange={(value) => {
                           updateOrderStatus(selectedOrder.id, value);
-                          setSelectedOrder({
-                            ...selectedOrder,
-                            status: value,
-                          });
+                          setSelectedOrder({...selectedOrder, status: value});
                         }}
                       >
                         <SelectTrigger className="w-full sm:w-40 text-xs sm:text-sm h-9">
@@ -907,20 +819,14 @@ Printed: ${new Date().toLocaleString("en-IN")}
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="processing">
-                            Processing
-                          </SelectItem>
+                          <SelectItem value="processing">Processing</SelectItem>
                           <SelectItem value="shipped">Shipped</SelectItem>
                           <SelectItem value="delivered">Delivered</SelectItem>
                           <SelectItem value="completed">Completed</SelectItem>
                           <SelectItem value="cancelled">Cancelled</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Button
-                        size="sm"
-                        onClick={() => setIsDialogOpen(false)}
-                        className="h-9"
-                      >
+                      <Button size="sm" onClick={() => setIsDialogOpen(false)} className="h-9">
                         Close
                       </Button>
                     </div>
