@@ -1,4 +1,12 @@
-import { ShoppingBag, Search, User, LogOut, Home, Menu, X } from "lucide-react";
+import {
+  ShoppingBag,
+  Search,
+  User,
+  LogOut,
+  Home,
+  Menu,
+  X,
+} from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useCart } from "@/context/CartContext";
 import { Button } from "@/components/ui/button";
@@ -24,6 +32,7 @@ export const Header = () => {
   const { totalItems } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
+
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -31,8 +40,11 @@ export const Header = () => {
   useEffect(() => {
     checkUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user || null);
+
       if (session?.user) {
         checkAdminStatus(session.user.id);
       } else {
@@ -44,21 +56,32 @@ export const Header = () => {
   }, []);
 
   const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     setUser(user);
+
     if (user) {
       checkAdminStatus(user.id);
     }
   };
 
+  // ✅ FIXED: uses maybeSingle instead of single
   const checkAdminStatus = async (userId: string) => {
-    const { data } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId)
-      .eq('role', 'admin')
-      .single();
-    
+    const { data, error } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+
+    if (error) {
+      console.error("Admin role check error:", error);
+      setIsAdmin(false);
+      return;
+    }
+
     setIsAdmin(!!data);
   };
 
@@ -81,24 +104,23 @@ export const Header = () => {
               className="text-primary-foreground hover:bg-primary-foreground/10"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
             >
-              {isMenuOpen ? (
-                <X className="h-5 w-5" />
-              ) : (
-                <Menu className="h-5 w-5" />
-              )}
+              {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
           </div>
 
           {/* Logo */}
           <div className="flex-1 flex justify-center md:justify-start md:flex-none">
-            <Link to="/" className="flex items-center gap-2 md:gap-3" onClick={() => setIsMenuOpen(false)}>
+            <Link
+              to="/"
+              className="flex items-center gap-2 md:gap-3"
+              onClick={() => setIsMenuOpen(false)}
+            >
               <img
                 src="/logo.svg"
                 alt="Belle Mirage Logo"
                 className="h-8 md:h-12 w-auto object-contain"
                 onError={(e) => {
-                  // Fallback if logo doesn't exist
-                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.style.display = "none";
                 }}
               />
               <span className="text-lg md:text-2xl font-light tracking-[0.2em] md:tracking-[0.4em] uppercase">
@@ -109,7 +131,6 @@ export const Header = () => {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-4">
-            {/* Home Button - Show on all pages except home */}
             {location.pathname !== "/" && (
               <Button
                 variant="ghost"
@@ -120,8 +141,7 @@ export const Header = () => {
                 <Home className="h-5 w-5" />
               </Button>
             )}
-            
-            {/* Search Button */}
+
             <Button
               variant="ghost"
               size="icon"
@@ -130,11 +150,15 @@ export const Header = () => {
             >
               <Search className="h-5 w-5" />
             </Button>
-            
+
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-primary-foreground hover:bg-primary-foreground/10"
+                  >
                     <User className="h-5 w-5" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -142,11 +166,13 @@ export const Header = () => {
                   <DropdownMenuItem onClick={() => navigate("/orders")}>
                     My Orders
                   </DropdownMenuItem>
+
                   {isAdmin && (
                     <DropdownMenuItem onClick={() => navigate("/admin")}>
                       Admin Dashboard
                     </DropdownMenuItem>
                   )}
+
                   <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="h-4 w-4 mr-2" />
                     Logout
@@ -163,10 +189,14 @@ export const Header = () => {
                 <User className="h-5 w-5" />
               </Button>
             )}
-            
+
             <Sheet>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative text-primary-foreground hover:bg-primary-foreground/10">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative text-primary-foreground hover:bg-primary-foreground/10"
+                >
                   <ShoppingBag className="h-5 w-5" />
                   {totalItems > 0 && (
                     <span className="absolute -top-1 -right-1 bg-primary-foreground text-primary text-xs rounded-full h-5 w-5 flex items-center justify-center">
@@ -194,10 +224,14 @@ export const Header = () => {
             >
               <Search className="h-5 w-5" />
             </Button>
-            
+
             <Sheet>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative text-primary-foreground hover:bg-primary-foreground/10">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative text-primary-foreground hover:bg-primary-foreground/10"
+                >
                   <ShoppingBag className="h-5 w-5" />
                   {totalItems > 0 && (
                     <span className="absolute -top-1 -right-1 bg-primary-foreground text-primary text-xs rounded-full h-5 w-5 flex items-center justify-center">
@@ -233,29 +267,7 @@ export const Header = () => {
                   Home
                 </Button>
               )}
-              
-              <Button
-                variant="ghost"
-                className="justify-start text-primary-foreground hover:bg-primary-foreground/10"
-                onClick={() => {
-                  navigate("/mens");
-                  setIsMenuOpen(false);
-                }}
-              >
-                Men's Collection
-              </Button>
-              
-              <Button
-                variant="ghost"
-                className="justify-start text-primary-foreground hover:bg-primary-foreground/10"
-                onClick={() => {
-                  navigate("/womens");
-                  setIsMenuOpen(false);
-                }}
-              >
-                Women's Collection
-              </Button>
-              
+
               {user ? (
                 <>
                   <Button
@@ -268,7 +280,7 @@ export const Header = () => {
                   >
                     My Orders
                   </Button>
-                  
+
                   {isAdmin && (
                     <Button
                       variant="ghost"
@@ -281,7 +293,7 @@ export const Header = () => {
                       Admin Dashboard
                     </Button>
                   )}
-                  
+
                   <Button
                     variant="ghost"
                     className="justify-start text-primary-foreground hover:bg-primary-foreground/10"
