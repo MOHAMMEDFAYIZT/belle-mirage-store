@@ -7,23 +7,28 @@ const AuthCallback = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    supabase.auth.onAuthStateChange((event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN") {
         navigate("/");
       }
     });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [navigate]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <div className="container mx-auto px-4 py-8 sm:py-12 flex items-center justify-center min-h-[60vh]">
+      <main className="flex-1 container mx-auto px-4 py-8 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 sm:h-16 sm:w-16 border-b-2 border-primary mx-auto mb-4 sm:mb-6"></div>
+          <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-primary mx-auto mb-4" />
           <p className="text-sm sm:text-base">Completing sign in...</p>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-2">You will be redirected shortly</p>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

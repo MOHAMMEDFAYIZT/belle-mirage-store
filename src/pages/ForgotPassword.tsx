@@ -2,7 +2,13 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Header } from "@/components/Header";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -15,7 +21,7 @@ const ForgotPassword = () => {
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email) {
       toast.error("Please enter your email");
       return;
@@ -39,33 +45,38 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <div className="container mx-auto px-4 py-6 sm:py-8 flex items-center justify-center min-h-[60vh]">
-        <Card className="w-full max-w-md mx-4">
-          <CardHeader className="p-4 sm:p-6">
-            <CardTitle className="text-lg sm:text-xl">Reset Password</CardTitle>
-            <CardDescription className="text-sm sm:text-base">
-              {sent 
-                ? "Check your email for the reset link" 
+      <main className="flex-1 container mx-auto px-4 py-8 flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-xl sm:text-2xl">Reset Password</CardTitle>
+            <CardDescription>
+              {sent
+                ? "Check your email for the reset link"
                 : "Enter your email to receive a password reset link"}
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-4 sm:p-6 pt-0">
+          <CardContent>
             {sent ? (
-              <div className="space-y-3 sm:space-y-4 text-center">
-                <p className="text-sm sm:text-base text-muted-foreground">
-                  We've sent a password reset link to <strong>{email}</strong>
+              <div className="space-y-4 text-center">
+                <p className="text-sm text-muted-foreground">
+                  We've sent a password reset link to{" "}
+                  <strong className="break-all">{email}</strong>
                 </p>
                 <p className="text-xs sm:text-sm text-muted-foreground">
                   Click the link in your email to set a new password.
                 </p>
-                <Button variant="outline" onClick={() => setSent(false)} className="w-full sm:w-auto">
+                <Button
+                  variant="outline"
+                  onClick={() => setSent(false)}
+                  className="w-full sm:w-auto"
+                >
                   Send another link
                 </Button>
               </div>
             ) : (
-              <form onSubmit={handleReset} className="space-y-3 sm:space-y-4">
+              <form onSubmit={handleReset} className="space-y-4">
                 <div className="space-y-2">
                   <div className="relative">
                     <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -74,26 +85,29 @@ const ForgotPassword = () => {
                       placeholder="email@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="pl-10 text-sm sm:text-base"
+                      className="pl-10"
                       required
                     />
                   </div>
                 </div>
-                
-                <Button type="submit" className="w-full text-sm sm:text-base" disabled={loading}>
+
+                <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "Sending..." : "Send Reset Link"}
                 </Button>
-                
+
                 <div className="text-center">
-                  <Link to="/login" className="text-xs sm:text-sm text-muted-foreground hover:text-foreground">
-                    ← Back to Login
+                  <Link
+                    to="/login"
+                    className="text-sm text-muted-foreground hover:text-foreground"
+                  >
+                    Back to Login
                   </Link>
                 </div>
               </form>
             )}
           </CardContent>
         </Card>
-      </div>
+      </main>
     </div>
   );
 };
