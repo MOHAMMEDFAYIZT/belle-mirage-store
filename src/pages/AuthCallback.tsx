@@ -7,11 +7,14 @@ const AuthCallback = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const handleAuth = async () => {
-      // This is CRITICAL: it reads the token/code from the URL
-      const { data, error } = await supabase.auth.getSession();
+    const handleAuthCallback = async () => {
+      // Read hash params (? / #) safely
+      const hash = window.location.hash;
+      const params = new URLSearchParams(hash.replace("#", ""));
+      const type = params.get("type");
 
-      console.log("Auth callback session:", data, error);
+      // VERY IMPORTANT: this consumes the tokens in URL
+      const { data, error } = await supabase.auth.getSession();
 
       if (error) {
         console.error("Auth callback error:", error);
@@ -19,6 +22,13 @@ const AuthCallback = () => {
         return;
       }
 
+      // ✅ PASSWORD RECOVERY FLOW
+      if (type === "recovery") {
+        navigate("/reset-password");
+        return;
+      }
+
+      // ✅ NORMAL SIGN-IN / EMAIL VERIFY / GOOGLE
       if (data.session) {
         navigate("/");
       } else {
@@ -26,7 +36,7 @@ const AuthCallback = () => {
       }
     };
 
-    handleAuth();
+    handleAuthCallback();
   }, [navigate]);
 
   return (
