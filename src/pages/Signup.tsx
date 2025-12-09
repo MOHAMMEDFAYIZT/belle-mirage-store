@@ -27,22 +27,29 @@ const Signup = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: {
-            full_name: fullName,
-          },
+          data: { full_name: fullName },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
 
       if (error) throw error;
 
-      toast.success("Account created successfully! You can now login.");
-      navigate("/login");
-    } catch (error: any) {
-      toast.error(error.message);
+      // ✅ Email verification ON
+      if (!data.session) {
+        toast.success("Check your email to verify your account");
+        navigate("/login");
+      } 
+      // ✅ Email verification OFF
+      else {
+        toast.success("Account created successfully!");
+        navigate("/");
+      }
+    } catch (err: any) {
+      toast.error(err.message);
     } finally {
       setLoading(false);
     }
@@ -55,52 +62,28 @@ const Signup = () => {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="text-xl sm:text-2xl">Sign Up</CardTitle>
-            <CardDescription>
-              Create a new account to get started
-            </CardDescription>
+            <CardDescription>Create your account</CardDescription>
           </CardHeader>
           <form onSubmit={handleSignup}>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="fullName">Full Name</Label>
-                <Input
-                  id="fullName"
-                  type="text"
-                  placeholder="John Doe"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  required
-                />
+                <Label>Full Name</Label>
+                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
+                <Label>Email</Label>
+                <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                />
+                <Label>Password</Label>
+                <Input type="password" minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} required />
               </div>
             </CardContent>
             <CardFooter className="flex flex-col space-y-4">
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Creating account..." : "Sign Up"}
+              <Button className="w-full" disabled={loading}>
+                {loading ? "Creating..." : "Sign Up"}
               </Button>
-              <p className="text-sm text-muted-foreground text-center">
+              <p className="text-sm text-muted-foreground">
                 Already have an account?{" "}
                 <Link to="/login" className="text-primary hover:underline">
                   Login
