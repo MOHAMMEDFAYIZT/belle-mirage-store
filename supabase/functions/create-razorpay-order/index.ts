@@ -19,17 +19,20 @@ type ShippingAddress = {
   city: string; state: string; pincode: string;
 };
 
-const hex = (buffer: ArrayBuffer) =>
-  Array.from(new Uint8Array(buffer), (byte) => byte.toString(16).padStart(2, "0")).join("");
-
 async function verifySignature(orderId: string, paymentId: string, signature: string, secret: string) {
+  if (!/^[a-f0-9]{64}$/i.test(signature)) return false;
+  const signatureBytes = new Uint8Array(
+    signature.match(/.{2}/g)!.map((byte) => Number.parseInt(byte, 16)),
+  );
   const key = await crypto.subtle.importKey(
-    "raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
+    "raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["verify"],
   );
-  const digest = await crypto.subtle.sign(
-    "HMAC", key, new TextEncoder().encode(`${orderId}|${paymentId}`),
+  return crypto.subtle.verify(
+    "HMAC",
+    key,
+    signatureBytes,
+    new TextEncoder().encode(`${orderId}|${paymentId}`),
   );
-  return hex(digest) === signature;
 }
 
 serve(async (req) => {
