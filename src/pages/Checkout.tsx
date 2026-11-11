@@ -202,10 +202,12 @@ const Checkout = () => {
             });
             toast.success("Payment successful! Your order has been placed.");
             clearCart();
-            setLoading(false);\n            navigate(`/order-confirmation/${response.razorpay_payment_id}`);
+            setLoading(false);
+            navigate(`/order-confirmation/${response.razorpay_payment_id}`);
           } catch (error: any) {
             console.error("❌ Error in payment handler:", error);
-            setLoading(false);\n            toast.error(`Payment needs verification. Please contact support with payment ID: ${response.razorpay_payment_id}`);
+            setLoading(false);
+            toast.error(`Payment needs verification. Please contact support with payment ID: ${response.razorpay_payment_id}`);
           }
         },
         prefill: {
