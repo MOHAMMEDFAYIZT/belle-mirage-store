@@ -12,12 +12,18 @@ SET payment_status = CASE
 END
 WHERE payment_status IS NULL OR payment_status = 'created';
 
+-- Replace the existing production constraint, which currently allows
+-- 'created' but does not allow the new 'pending' state.
+ALTER TABLE public.orders
+  DROP CONSTRAINT IF EXISTS valid_payment_status,
+  DROP CONSTRAINT IF EXISTS orders_payment_status_check;
+
 ALTER TABLE public.orders
   ALTER COLUMN payment_status SET DEFAULT 'pending',
   ALTER COLUMN payment_status SET NOT NULL;
 
 ALTER TABLE public.orders
-  ADD CONSTRAINT orders_payment_status_check
+  ADD CONSTRAINT valid_payment_status
   CHECK (payment_status IN ('pending', 'paid', 'failed', 'refunded'));
 
 -- A Razorpay order must map to at most one store order.
