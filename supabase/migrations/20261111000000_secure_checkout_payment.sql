@@ -1,7 +1,24 @@
 -- Secure checkout: create pending orders atomically and only from the trusted Edge Function.
 ALTER TABLE public.orders
-  ADD COLUMN IF NOT EXISTS payment_status TEXT NOT NULL DEFAULT 'pending',
+  ADD COLUMN IF NOT EXISTS payment_status TEXT,
   ADD COLUMN IF NOT EXISTS estimated_delivery DATE;
+
+-- Preserve the best available state for historical orders before enforcing the
+-- new default. New orders are always created as pending by the trusted function.
+UPDATE public.orders
+SET payment_status = CASE
+  WHEN payment_intent_id IS NOT NULL THEN 'paid'
+  ELSE 'pending'
+END
+WHERE payment_status IS NULL;
+
+ALTER TABLE public.orders
+  ALTER COLUMN payment_status SET DEFAULT 'pending',
+  ALTER COLUMN payment_status SET NOT NULL;
+
+ALTER TABLE public.orders
+  ADD CONSTRAINT orders_payment_status_check
+  CHECK (payment_status IN ('pending', 'paid', 'failed', 'refunded'));
 
 -- A Razorpay order must map to at most one store order.
 CREATE UNIQUE INDEX IF NOT EXISTS orders_razorpay_order_id_unique
