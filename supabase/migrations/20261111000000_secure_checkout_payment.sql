@@ -10,7 +10,7 @@ SET payment_status = CASE
   WHEN payment_intent_id IS NOT NULL THEN 'paid'
   ELSE 'pending'
 END
-WHERE payment_status IS NULL;
+WHERE payment_status IS NULL OR payment_status = 'created';
 
 ALTER TABLE public.orders
   ALTER COLUMN payment_status SET DEFAULT 'pending',
