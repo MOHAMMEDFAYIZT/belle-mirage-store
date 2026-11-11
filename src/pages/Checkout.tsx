@@ -196,11 +196,10 @@ const Checkout = () => {
         order_id: orderData.orderId,
         handler: async function (response: any) {
           try {
-            await saveOrder(
-              response.razorpay_payment_id,
-              response.razorpay_order_id,
-              response.razorpay_signature
-            );
+            await verifyAndSaveOrder({
+              ...response,
+              internalOrderId: orderData.internalOrderId,
+            });
             toast.success("Payment successful! Your order has been placed.");
             clearCart();
             setLoading(false);\n            navigate(`/order-confirmation/${response.razorpay_payment_id}`);
