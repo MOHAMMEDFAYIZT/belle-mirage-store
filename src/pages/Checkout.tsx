@@ -103,27 +103,7 @@ const Checkout = () => {
     });
   };
 
-  const createRazorpayOrder = async (amount: number) => {
-    try {
-      const { data, error } = await supabase.functions.invoke('create-razorpay-order', {
-        body: { 
-          amount: amount,
-          currency: "INR"
-        }
-      });
-
-      if (error) throw new Error(`Payment server error: ${error.message}`);
-      if (!data || !data.orderId) throw new Error("Invalid response from payment server");
-
-      return data;
-    } catch (error: any) {
-      throw error;
-    }
-  };
-
-  const saveOrder = async (paymentId: string, orderId: string, signature: string) => {
-    if (!user) throw new Error("User not authenticated");
-
+  const createRazorpayOrder = async () => {
     const shippingAddress: ShippingAddress = {
       full_name: formData.fullName.trim(),
       email: formData.email.trim(),
@@ -134,49 +114,45 @@ const Checkout = () => {
       pincode: formData.pincode.trim(),
     };
 
-    try {
-      const orderDate = new Date();
-      const estimatedDelivery = new Date(orderDate);
-      estimatedDelivery.setDate(orderDate.getDate() + 7);
-      const estimatedDeliveryDateOnly = estimatedDelivery.toISOString().split("T")[0];
-
-      const { data: order, error: orderError } = await supabase
-        .from("orders")
-        .insert({
-          user_id: user.id,
-          total_amount: totalPrice,
-          status: "processing",
-          payment_status: "paid",
-          payment_intent_id: paymentId,
-          razorpay_order_id: orderId,
-          razorpay_signature: signature,
-          shipping_address: shippingAddress,
-          estimated_delivery: estimatedDeliveryDateOnly,
-        })
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-
-      const orderItems = items.map((item: CartItem) => ({
-        order_id: order.id,
-        product_id: item.product.id,
-        quantity: item.quantity,
-        size: item.size || "One Size",
-        color: item.color || "Default",
-        price: item.product.price,
-      }));
-
-      const { error: itemsError } = await supabase
-        .from("order_items")
-        .insert(orderItems);
-
-      if (itemsError) throw itemsError;
-
-      return order;
-    } catch (error) {
-      throw error;
+    const { data, error } = await supabase.functions.invoke("create-razorpay-order", {
+      body: {
+        action: "create",
+        items: items.map((item: CartItem) => ({
+          product_id: item.product.id,
+          quantity: item.quantity,
+          size: item.size,
+          color: item.color,
+        })),
+        shippingAddress,
+      },
+    });
+    if (error) throw new Error(error.message || "Unable to start payment");
+    if (!data?.orderId || !data?.internalOrderId || !data?.amount) {
+      throw new Error(data?.error || "Invalid response from payment server");
     }
+    return data;
+  };
+
+  const verifyAndSaveOrder = async (response: {
+    razorpay_payment_id: string;
+    razorpay_order_id: string;
+    razorpay_signature: string;
+    internalOrderId: string;
+  }) => {
+    const { data, error } = await supabase.functions.invoke("create-razorpay-order", {
+      body: {
+        action: "verify",
+        internalOrderId: response.internalOrderId,
+        razorpay_payment_id: response.razorpay_payment_id,
+        razorpay_order_id: response.razorpay_order_id,
+        razorpay_signature: response.razorpay_signature,
+      },
+    });
+    if (error) throw new Error(error.message || "Payment verification failed");
+    if (!data?.success || !data?.orderId) {
+      throw new Error(data?.error || "Payment could not be verified");
+    }
+    return data;
   };
 
   const handlePayment = async () => {
@@ -205,7 +181,7 @@ const Checkout = () => {
         throw new Error("Failed to load payment system. Please refresh and try again.");
       }
 
-      const orderData = await createRazorpayOrder(totalPrice);
+      const orderData = await createRazorpayOrder();
       const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID;
       if (!razorpayKeyId) {
         throw new Error("Payment configuration error. Please contact support.");
@@ -220,17 +196,18 @@ const Checkout = () => {
         order_id: orderData.orderId,
         handler: async function (response: any) {
           try {
-            await saveOrder(
-              response.razorpay_payment_id,
-              response.razorpay_order_id,
-              response.razorpay_signature
-            );
+            await verifyAndSaveOrder({
+              ...response,
+              internalOrderId: orderData.internalOrderId,
+            });
             toast.success("Payment successful! Your order has been placed.");
             clearCart();
+            setLoading(false);
             navigate(`/order-confirmation/${response.razorpay_payment_id}`);
           } catch (error: any) {
             console.error("❌ Error in payment handler:", error);
-            toast.error(`Payment successful but failed to save order details: ${error.message}. Please contact support with payment ID: ${response.razorpay_payment_id}`);
+            setLoading(false);
+            toast.error(`Payment needs verification. Please contact support with payment ID: ${response.razorpay_payment_id}`);
           }
         },
         prefill: {
