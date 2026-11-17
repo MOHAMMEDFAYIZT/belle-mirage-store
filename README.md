@@ -1,38 +1,36 @@
-# Belle Mirage — E-commerce Platform
+# Belle Mirage — E-commerce Web Application
 
-Belle Mirage is a full-stack e-commerce application built to provide an online shopping experience with customer authentication, product discovery, cart management, checkout, and order tracking.
+Belle Mirage is a full-stack fashion e-commerce application built with React and Supabase. It brings together product discovery, customer accounts, cart management, checkout, order history, and administrative product and order workflows.
 
-## Features
+## What it includes
 
-- **Product Catalog:** Browse men's and women's collections and explore individual product details.
-- **Search:** Find products through the search interface.
-- **Authentication:** Customer signup, login, password recovery, and password reset.
-- **Shopping Cart:** Add and manage products before checkout.
-- **Checkout:** Complete the checkout flow with Razorpay payment integration in test mode.
-- **Order Management:** View customer orders and order confirmation details.
-- **Admin Dashboard:** Manage products and review customer orders.
-- **Responsive Interface:** Shopping experience designed for different screen sizes.
+- **Product discovery:** Men's and women's collections, product detail pages, and search results.
+- **Customer accounts:** Sign-up, login, authentication callbacks, password recovery, and password reset.
+- **Cart and checkout:** Cart state management, shipping details, and a checkout flow integrated with Razorpay.
+- **Order workflows:** Order confirmation and customer order history.
+- **Admin workflows:** Separate views for product management and order management.
+- **Responsive UI:** Layouts designed for desktop and mobile screens.
 
-## Tech Stack
+## Technology
 
-- **Frontend:** React, TypeScript, Vite
-- **Styling:** Tailwind CSS, shadcn/ui
-- **Backend & Authentication:** Supabase
-- **Database:** Supabase
-- **Payments:** Razorpay (Test Mode)
-- **Routing:** React Router
-- **Data Fetching:** TanStack Query
+| Area | Tools |
+|---|---|
+| Frontend | React, TypeScript, Vite |
+| UI | Tailwind CSS, shadcn/ui |
+| Routing | React Router |
+| Server state | TanStack Query |
+| Backend services | Supabase |
+| Payments | Razorpay |
 
-## Getting Started
+## Run locally
 
-### Prerequisites
+### Requirements
 
-- Node.js
-- npm
+- Node.js and npm
 - A Supabase project
-- Razorpay test API credentials
+- Razorpay test credentials and the required Supabase Edge Function configuration
 
-### Installation
+### Setup
 
 ```bash
 git clone https://github.com/MOHAMMEDFAYIZT/belle-mirage-store.git
@@ -40,37 +38,36 @@ cd belle-mirage-store
 npm install
 ```
 
-### Environment Variables
-
-Create a `.env` file in the project root and configure the required environment variables.
+Create a `.env` file in the project root:
 
 ```env
-VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_RAZORPAY_KEY_ID=your_razorpay_key_id
 ```
 
-Add any additional Razorpay or backend configuration required by the payment implementation. Never commit secret API keys or credentials.
+Configure the Supabase Edge Function and its server-side secrets separately. Do not put private Razorpay secrets in frontend environment variables or commit credentials to Git.
 
-### Run Locally
+Start the development server:
 
 ```bash
 npm run dev
 ```
 
-### Production Build
+Create a production build:
 
 ```bash
 npm run build
 ```
 
-## Payment Integration
+## Payment note
 
-Razorpay is integrated using its test environment. The checkout flow can be tested without processing real payments. Live payment processing is not enabled.
+The repository's checkout flow creates an order through a Supabase Edge Function, opens Razorpay Checkout, and sends the payment response for server-side verification. The project has been configured for Razorpay test-mode use; it should not be presented as a live-payment store.
 
-## Project Purpose
+## Project focus
 
-This project demonstrates practical full-stack development, including frontend development, backend integration, authentication, database interaction, checkout workflows, and administrative functionality.
+This project demonstrates the integration of a React storefront with hosted authentication and data services, customer and admin workflows, and a third-party payment checkout.
 
 ---
 
-**Built by [Mohammed Fayiz T](https://github.com/MOHAMMEDFAYIZT)**
+**Developer:** [Mohammed Fayiz T](https://github.com/MOHAMMEDFAYIZT)
