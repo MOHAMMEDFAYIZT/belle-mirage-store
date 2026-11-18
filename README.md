@@ -1,5 +1,7 @@
 # Belle Mirage — E-commerce Web Application
 
+**[View the live application](https://belle-mirage-store.vercel.app)**
+
 Belle Mirage is a full-stack fashion e-commerce application built with React and Supabase. It brings together product discovery, customer accounts, cart management, checkout, order history, and administrative product and order workflows.
 
 ## What it includes
