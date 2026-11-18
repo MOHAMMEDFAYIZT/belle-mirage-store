@@ -4,6 +4,26 @@
 
 Belle Mirage is a full-stack fashion e-commerce application built with React and Supabase. It brings together product discovery, customer accounts, cart management, checkout, order history, and administrative product and order workflows.
 
+## Screenshots
+
+<!-- Upload the homepage screenshot here. Recommended: capture the full first screen, including the navigation, hero section, and featured products. -->
+
+### Homepage
+
+<!-- Replace this comment by dragging the homepage screenshot into the GitHub README editor here. -->
+
+<!-- Upload a product detail screenshot here. Recommended: show the product image, name, price, and product options. -->
+
+### Product details
+
+<!-- Replace this comment by dragging the product detail screenshot into the GitHub README editor here. -->
+
+<!-- Upload a cart or checkout screenshot here. Recommended: show the cart summary and checkout layout, but hide any personal or payment information. -->
+
+### Cart and checkout
+
+<!-- Replace this comment by dragging the cart or checkout screenshot into the GitHub README editor here. -->
+
 ## What it includes
 
 - **Product discovery:** Men's and women's collections, product detail pages, and search results.
