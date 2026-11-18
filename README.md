@@ -14,6 +14,10 @@ Belle Mirage is a full-stack fashion e-commerce application built with React and
 
 <img width="1323" alt="Belle Mirage product details" src="https://github.com/user-attachments/assets/f6b5e9a9-fcc5-4586-8daf-0364da6eb314" />
 
+### Admin dashboard
+<img width="1323" height="942" alt="Screenshot from 2026-11-17 16-54-15" src="https://github.com/user-attachments/assets/bd2f88d2-8545-4861-ae07-005ea95edcdd" />
+
+
 ## What it includes
 
 - **Product discovery:** Men's and women's collections, product detail pages, and search results.
