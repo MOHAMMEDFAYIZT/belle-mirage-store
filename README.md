@@ -6,23 +6,13 @@ Belle Mirage is a full-stack fashion e-commerce application built with React and
 
 ## Screenshots
 
-<!-- Upload the homepage screenshot here. Recommended: capture the full first screen, including the navigation, hero section, and featured products. -->
-
 ### Homepage
 
-<!-- Replace this comment by dragging the homepage screenshot into the GitHub README editor here. -->
-
-<!-- Upload a product detail screenshot here. Recommended: show the product image, name, price, and product options. -->
+<img width="1323" alt="Belle Mirage homepage" src="https://github.com/user-attachments/assets/c255edc0-a0e3-4df3-a996-975d82a748f7" />
 
 ### Product details
 
-<!-- Replace this comment by dragging the product detail screenshot into the GitHub README editor here. -->
-
-<!-- Upload a cart or checkout screenshot here. Recommended: show the cart summary and checkout layout, but hide any personal or payment information. -->
-
-### Cart and checkout
-
-<!-- Replace this comment by dragging the cart or checkout screenshot into the GitHub README editor here. -->
+<img width="1323" alt="Belle Mirage product details" src="https://github.com/user-attachments/assets/f6b5e9a9-fcc5-4586-8daf-0364da6eb314" />
 
 ## What it includes
 
