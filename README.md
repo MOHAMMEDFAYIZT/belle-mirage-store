@@ -1,6 +1,6 @@
 # Belle Mirage — Full-Stack Fashion E-commerce
 
-**[Visit the live application](https://belle-mirage-store.vercel.app)** · **[View source code](https://github.com/MOHAMMEDFAYIZT/belle-mirage-store)**
+**[Visit the live application](https://belle-mirage-store.vercel.app)** · **[Watch the demo video](https://youtu.be/LBdYig8XYHQ)** · **[View source code](https://github.com/MOHAMMEDFAYIZT/belle-mirage-store)**
 
 Belle Mirage is a responsive fashion e-commerce application built with React, TypeScript, Supabase, and Razorpay. It includes a customer-facing storefront for discovering and purchasing products, account and order features, and a separate admin area for managing the product catalog and customer orders.
 
